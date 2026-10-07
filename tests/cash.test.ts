@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { sumDenoms } from "../src/domain/money";
-import { coinWarnings, expectedDrawer, staffTotals, totals } from "../src/domain/stats";
-import { nonSale, sale, session, settings } from "./helpers";
+import { crossedMilestone, expectedDrawer, staffTotals, totals } from "../src/domain/stats";
+import { nonSale, sale, session } from "./helpers";
 
 describe("理論残高（準備金 + 会計 − 取り消し）", () => {
   const float = session().openingFloat; // 500円玉20, 100円玉50 = 15,000円
@@ -39,12 +39,14 @@ describe("理論残高（準備金 + 会計 − 取り消し）", () => {
     ]);
   });
 
-  it("小銭の警告：100円玉20枚未満で黄、5枚未満で赤", () => {
-    const s = settings();
-    const base = { ...session().openingFloat };
-    expect(coinWarnings({ ...base, y100: 20, y500: 10 }, s)).toEqual([]);
-    expect(coinWarnings({ ...base, y100: 19, y500: 10 }, s)[0]).toMatchObject({ key: "y100", level: "warn" });
-    expect(coinWarnings({ ...base, y100: 4, y500: 10 }, s)[0]).toMatchObject({ key: "y100", level: "danger" });
-    expect(coinWarnings({ ...base, y100: 30, y500: 9 }, s)[0]).toMatchObject({ key: "y500", level: "warn" });
+  it("キリ番の判定", () => {
+    expect(crossedMilestone(9, 10, 10, 350)).toBe(10);
+    expect(crossedMilestone(8, 12, 10, 350)).toBe(10);
+    expect(crossedMilestone(10, 11, 10, 350)).toBeNull();
+    expect(crossedMilestone(18, 31, 10, 350)).toBe(30); // 2つまたいだら大きい方
+    expect(crossedMilestone(345, 350, 10, 350)).toBeNull(); // 目標ちょうどは達成演出
+    expect(crossedMilestone(355, 360, 10, 350)).toBe(360); // 達成後も続く
+    expect(crossedMilestone(9, 10, 0, 350)).toBeNull(); // 演出なし
+    expect(crossedMilestone(48, 52, 25, 350)).toBe(50);
   });
 });

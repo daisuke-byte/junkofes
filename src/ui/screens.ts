@@ -1,6 +1,6 @@
 import { forecast, forecastShort, forecastText } from "../domain/forecast";
 import { computeChange, describeDenoms, RECEIVE_OPTIONS, sumDenoms, yen, type ReceiveOption } from "../domain/money";
-import { coinWarnings, COUNTDOWN_FROM, totals } from "../domain/stats";
+import { COUNTDOWN_FROM, totals } from "../domain/stats";
 import { hm, hms } from "../domain/time";
 import type { Store } from "../store";
 import type { Sale } from "../types";
@@ -24,7 +24,7 @@ export function practiceBanner(store: Store): string {
   return store.state.settings.mode === "practice" ? `<div class="practice-banner" role="status">🧪 練習中（本番データとは別に保存されています）</div>` : "";
 }
 
-// --- 上部バー（累計・進捗・予測・警告） ---
+// --- 上部バー（累計・進捗・予測） ---
 
 function topBar(store: Store, now: Date): string {
   const { settings, session, sales } = store.state;
@@ -32,10 +32,6 @@ function topBar(store: Store, now: Date): string {
   const pctRaw = settings.targetCount ? (tot.soldQty / settings.targetCount) * 100 : 0;
   const pct = Math.floor(pctRaw);
   const f = session ? forecast(sales, settings, new Date(session.openedAt), now) : null;
-  const warns = coinWarnings(store.drawer(), settings);
-  const warnHtml = warns
-    .map((w) => `<span class="warn-chip ${w.level}">${ICON_WARN}${w.label} 残${w.count}</span>`)
-    .join("");
   return `<header class="topbar">
     <div class="tb-total"><b>${tot.soldQty}</b>杯 / ${yen(tot.revenue)}</div>
     <div class="tb-progress" role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-valuenow="${Math.min(100, pct)}" aria-label="目標に対する進捗">
@@ -43,7 +39,6 @@ function topBar(store: Store, now: Date): string {
       <span>${pct >= 100 ? `目標比 ${pct}%` : `${pct}%`}</span>
     </div>
     <div class="tb-forecast" title="${f ? esc(forecastText(f, settings.targetCount)) : ""}">${f ? esc(forecastShort(f)) : ""}</div>
-    <div class="tb-warns">${warnHtml}</div>
   </header>`;
 }
 
@@ -60,7 +55,7 @@ export function registerScreen(store: Store, ui: UiState, now: Date): string {
   const { settings, sales } = store.state;
   const closing = store.phase !== "open";
   const total = ui.qty * settings.unitPrice;
-  const r = ui.option ? computeChange(ui.qty, settings.unitPrice, ui.option, store.drawer()) : null;
+  const r = ui.option ? computeChange(ui.qty, settings.unitPrice, ui.option) : null;
   const f = store.state.session ? forecast(sales, settings, new Date(store.state.session.openedAt), now) : null;
 
   const qtyBtns = [1, 2, 3, 4, 5]
@@ -276,12 +271,22 @@ export function settingsScreen(store: Store): string {
         <label class="field">目標杯数<input name="targetCount" type="number" inputmode="numeric" min="1" value="${s.targetCount}" required /></label>
         <label class="field">営業終了予定<input name="plannedCloseTime" type="time" value="${esc(s.plannedCloseTime)}" /></label>
       </div>
-      <h2>小銭残量の警告</h2>
-      <div class="two">
-        <label class="field">100円玉がこの枚数未満で警告<input name="warn100" type="number" inputmode="numeric" min="0" value="${s.coinWarn.y100}" /></label>
-        <label class="field">500円玉がこの枚数未満で警告<input name="warn500" type="number" inputmode="numeric" min="0" value="${s.coinWarn.y500}" /></label>
-      </div>
-      <p class="sub">5枚未満になると赤の警告になります。</p>
+      <h2>キリ番の演出</h2>
+      <label class="field">何杯ごとにお祝いするか
+        <select name="milestoneEvery" class="select">
+          ${(
+            [
+              [10, "10杯ごと"],
+              [25, "25杯ごと"],
+              [50, "50杯ごと"],
+              [100, "100杯ごと"],
+              [0, "お祝いしない"],
+            ] as const
+          )
+            .map(([v, l]) => `<option value="${v}" ${s.milestoneEvery === v ? "selected" : ""}>${l}</option>`)
+            .join("")}
+        </select></label>
+      <p class="sub">キリ番ではクラッカーと音楽でお祝いし、達成の予測時刻を出します。50杯・100杯ごとはさらに派手になります。目標杯数ちょうどは特別な達成演出です。</p>
       <h2>Slack 通知</h2>
       <label class="field">Incoming Webhook URL（この端末の中にだけ保存されます）
         <input name="slackWebhookUrl" type="url" autocomplete="off" autocapitalize="off" spellcheck="false" placeholder="https://hooks.slack.com/services/..." value="${esc(s.slackWebhookUrl)}" /></label>

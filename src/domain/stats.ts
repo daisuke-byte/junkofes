@@ -1,7 +1,6 @@
-import type { Denoms, Sale, Session, Settings } from "../types";
+import type { Denoms, Sale, Session } from "../types";
 import { addDenoms, subDenoms } from "./money";
 
-export const COIN_DANGER = 5; // この枚数未満で赤の警告
 export const COUNTDOWN_FROM = 10; // 目標までのカウントダウン開始
 
 const t = (s: Sale) => Date.parse(s.createdAt);
@@ -100,19 +99,15 @@ export function peakSlot(slots: Slot[]): Slot | null {
   return best;
 }
 
-export type CoinLevel = "ok" | "warn" | "danger";
-export type CoinWarning = { key: "y100" | "y500"; label: string; count: number; level: CoinLevel };
-
-export function coinWarnings(drawer: Denoms, settings: Settings): CoinWarning[] {
-  const out: CoinWarning[] = [];
-  const check = (key: "y100" | "y500", label: string) => {
-    const count = drawer[key];
-    const level: CoinLevel = count < COIN_DANGER ? "danger" : count < settings.coinWarn[key] ? "warn" : "ok";
-    if (level !== "ok") out.push({ key, label, count, level });
-  };
-  check("y100", "100円玉");
-  check("y500", "500円玉");
-  return out;
+/**
+ * 会計で「キリ番」（every 杯ごと）をまたいだら、その杯数を返す。
+ * 一度に何杯も売れて 2つまたいだ時は大きい方。目標杯数ちょうどは達成演出に任せる。
+ */
+export function crossedMilestone(before: number, after: number, every: number, target: number): number | null {
+  if (every <= 0) return null;
+  const m = Math.floor(after / every) * every;
+  if (m <= before || m <= 0 || m === target) return null;
+  return m;
 }
 
 export type StaffTotal = { name: string; qty: number; revenue: number; count: number };

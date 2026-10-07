@@ -1,7 +1,7 @@
 import type { Database } from "./db";
 import { computeChange, emptyDenoms, sumDenoms, type ReceiveOption } from "./domain/money";
 import { closeText, goalText, hourlyText, openText } from "./domain/messages";
-import { dueHourlySlot, expectedDrawer, totals } from "./domain/stats";
+import { crossedMilestone, dueHourlySlot, expectedDrawer, totals } from "./domain/stats";
 import { newId } from "./domain/time";
 import type { Notifier } from "./notify";
 import type { Denoms, Mode, Sale, Session, Settings } from "./types";
@@ -11,7 +11,7 @@ export type SaleEvent = {
   before: number; // 会計前の累計杯数
   after: number;
   reachedGoal: boolean;
-  milestone: number | null; // 100/200/300 杯
+  milestone: number | null; // キリ番（設定の杯数ごと）
 };
 
 export type State = {
@@ -120,7 +120,7 @@ export class Store {
   async confirmSale(qty: number, option: ReceiveOption): Promise<SaleEvent> {
     const { session, settings, sales } = this.state;
     if (!session || this.phase !== "open") throw new Error("営業中ではありません");
-    const r = computeChange(qty, settings.unitPrice, option, this.drawer());
+    const r = computeChange(qty, settings.unitPrice, option);
     if (!r.ok) throw new Error(`${r.shortage}円 不足しています`);
     const sale: Sale = {
       id: newId(),
@@ -144,7 +144,7 @@ export class Store {
     const after = before + qty;
     const target = settings.targetCount;
     const reachedGoal = before < target && after >= target;
-    const milestone = [100, 200, 300].find((m) => m < target && before < m && after >= m) ?? null;
+    const milestone = reachedGoal ? null : crossedMilestone(before, after, settings.milestoneEvery, target);
     if (reachedGoal)
       await this.notify("goal", goalText(settings, session, new Date(sale.createdAt)), { id: `${session.id}:goal`, sessionId: session.id });
     return { sale, before, after, reachedGoal, milestone };

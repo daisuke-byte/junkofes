@@ -1,7 +1,7 @@
 import type { Sale, Session, Settings } from "../types";
 import { forecast, forecastText } from "./forecast";
 import { sumDenoms, yen } from "./money";
-import { coinWarnings, expectedDrawer, soldBetween, totals } from "./stats";
+import { soldBetween, totals } from "./stats";
 import { duration, hm } from "./time";
 
 export const SHOP = "中村韓国キッチン";
@@ -23,10 +23,6 @@ export function hourlyText(settings: Settings, session: Session, sales: Sale[], 
   const f = forecast(sales, settings, new Date(session.openedAt), now);
   if (f.kind === "eta") lines.push(`達成予測 ${hm(f.at)} ごろ`);
   else lines.push(`予測 ${forecastText(f, settings.targetCount)}`);
-  const drawer = expectedDrawer(session.openingFloat, sales);
-  const warns = coinWarnings(drawer, settings);
-  if (warns.length === 0) lines.push(`小銭 100円玉 ${drawer.y100}枚 / 500円玉 ${drawer.y500}枚`);
-  for (const w of warns) lines.push(`⚠️ ${w.label} 残り${w.count}枚 → 両替をお願いします`);
   return lines.join("\n");
 }
 

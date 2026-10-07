@@ -7,7 +7,7 @@ export type Settings = {
   targetCount: number; // 350
   plannedCloseTime: string; // 営業終了予定 "16:00"（空なら未設定）
   slackWebhookUrl: string;
-  coinWarn: { y100: number; y500: number }; // 黄色警告の閾値（赤は COIN_DANGER 未満）
+  milestoneEvery: number; // この杯数ごとにキリ番演出（0 で演出なし）
   muted: boolean;
   mode: Mode;
   staff: string[]; // 登録した担当者

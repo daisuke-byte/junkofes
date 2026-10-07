@@ -8,7 +8,7 @@ export const DEFAULT_SETTINGS: Settings = {
   targetCount: 350,
   plannedCloseTime: "16:00",
   slackWebhookUrl: "",
-  coinWarn: { y100: 20, y500: 10 },
+  milestoneEvery: 10,
   muted: false,
   mode: "live",
   staff: [],
@@ -62,7 +62,7 @@ export class Database {
   async getSettings(): Promise<Settings> {
     const tx = this.db.transaction("settings", "readonly");
     const s = (await req(tx.objectStore("settings").get("settings"))) as Partial<Settings> | undefined;
-    return { ...DEFAULT_SETTINGS, ...s, coinWarn: { ...DEFAULT_SETTINGS.coinWarn, ...s?.coinWarn } };
+    return { ...DEFAULT_SETTINGS, ...s };
   }
 
   putSettings(s: Settings): Promise<void> {

@@ -676,6 +676,14 @@ h3 {
   background: #fff;
   font-weight: 500;
 }
+.field select {
+  min-height: 56px;
+  border: 2px solid #8a8478;
+  border-radius: 10px;
+  padding: 8px 12px;
+  font-size: 20px;
+  background: #fff;
+}
 .field.required textarea {
   border-color: var(--ng);
   background: #fff5f4;
@@ -1020,31 +1028,6 @@ table.history {
 .toast.out {
   opacity: 0;
 }
-.milestone {
-  position: fixed;
-  top: 90px;
-  right: 16px;
-  z-index: 60;
-  background: var(--yellow);
-  color: #000;
-  font-weight: 900;
-  font-size: 26px;
-  padding: 12px 20px;
-  border-radius: 14px;
-  border: 3px solid #000;
-  animation: slide-in 0.3s ease-out;
-  transition: opacity 0.4s, transform 0.4s;
-}
-.milestone.out {
-  opacity: 0;
-  transform: translateX(40px);
-}
-@keyframes slide-in {
-  from {
-    transform: translateX(60px);
-    opacity: 0;
-  }
-}
 
 /* ---------- 達成演出 ---------- */
 #celebrate-root[hidden] {
@@ -1113,8 +1096,85 @@ table.history {
 
 @media (prefers-reduced-motion: reduce) {
   .warn-chip.danger,
-  .celebrate-text,
-  .milestone {
+  .celebrate-text {
     animation: none;
+  }
+}
+
+/* ---------- キリ番の演出（クラッカーのドッキリ） ---------- */
+.pop-flash {
+  position: absolute;
+  inset: 0;
+  background: #fff;
+  pointer-events: none;
+  animation: flash 0.45s ease-out forwards;
+}
+@keyframes flash {
+  from {
+    opacity: 0.95;
+  }
+  to {
+    opacity: 0;
+  }
+}
+.milestone-pop {
+  background: radial-gradient(circle at 50% 45%, rgba(29, 58, 138, 0.95) 0%, rgba(8, 8, 24, 0.97) 75%);
+}
+.milestone-pop .celebrate-text {
+  animation:
+    pop 0.5s cubic-bezier(0.2, 1.8, 0.4, 1),
+    shake 0.5s 0.05s;
+}
+.milestone-pop .c-main {
+  font-size: clamp(64px, 11vw, 140px);
+}
+.milestone-pop.tier-2 .c-main,
+.milestone-pop.tier-3 .c-main {
+  font-size: clamp(72px, 13vw, 170px);
+}
+.milestone-pop.tier-3 {
+  background: radial-gradient(circle at 50% 45%, #5a1a1a 0%, #0b0b1e 75%);
+}
+.c-staff {
+  font-size: 30px;
+  font-weight: 900;
+  color: var(--yellow);
+  margin-bottom: 6px;
+}
+.c-forecast {
+  font-size: clamp(26px, 3.6vw, 40px);
+  font-weight: 900;
+  margin-top: 6px;
+}
+.c-forecast b {
+  font-size: 1.5em;
+  color: var(--yellow);
+  margin: 0 4px;
+}
+@keyframes shake {
+  0%,
+  100% {
+    transform: translate(0, 0) rotate(0);
+  }
+  20% {
+    transform: translate(-14px, 4px) rotate(-2deg);
+  }
+  40% {
+    transform: translate(12px, -4px) rotate(2deg);
+  }
+  60% {
+    transform: translate(-8px, 2px) rotate(-1deg);
+  }
+  80% {
+    transform: translate(6px, -2px) rotate(1deg);
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .milestone-pop .celebrate-text,
+  .pop-flash {
+    animation: none;
+  }
+  .pop-flash {
+    display: none;
   }
 }
