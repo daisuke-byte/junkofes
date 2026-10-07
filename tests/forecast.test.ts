@@ -52,15 +52,6 @@ describe("完売予測", () => {
     expect(forecastText(f, 350)).toBe("終了までに約 120杯の見込み");
   });
 
-  it("仕込み数が目標より少ないと売り切れを予測する", () => {
-    const f = forecast(steady(0, 30), settings({ stockCount: 100, plannedCloseTime: "18:00" }), T0, at(30));
-    expect(f.kind).toBe("eta");
-    if (f.kind !== "eta") return;
-    expect(f.goalKind).toBe("soldout");
-    expect(f.remaining).toBe(70);
-    expect(forecastText(f, 350)).toBe("このペースなら 11:40 に売り切れ（あと 70杯）");
-  });
-
   it("目標に達したら done", () => {
     const f = forecast([sale(1, 350)], s, T0, at(2));
     expect(f.kind).toBe("done");

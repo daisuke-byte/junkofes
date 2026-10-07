@@ -91,12 +91,15 @@ export function closeModal(v: FormData | null) {
 
 // --- トースト ---
 
-export function toast(msg: string, kind: "info" | "error" | "ok" = "info", ms = 2600) {
+/** 通知を1つだけ表示する（前の通知は消す。画面を覆い続けないように） */
+export function toast(msg: string, kind: "info" | "error" | "ok" = "info", ms = kind === "error" ? 4000 : 1800) {
+  const root = $("#toast-root")!;
+  root.replaceChildren();
   const el = document.createElement("div");
   el.className = `toast toast-${kind}`;
   el.setAttribute("role", kind === "error" ? "alert" : "status");
   el.textContent = msg;
-  $("#toast-root")!.appendChild(el);
+  root.appendChild(el);
   setTimeout(() => el.classList.add("out"), ms);
   setTimeout(() => el.remove(), ms + 400);
 }

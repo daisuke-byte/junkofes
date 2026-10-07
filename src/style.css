@@ -323,13 +323,104 @@ a {
 }
 .recv-grid {
   display: grid;
-  grid-template-columns: repeat(3, 1fr);
+  grid-template-columns: repeat(4, 1fr);
   gap: 10px;
   flex: 1;
   min-height: 0;
 }
 .key.recv {
   font-size: 30px;
+}
+.key.recv.input {
+  grid-column: span 2;
+  font-size: 26px;
+  background: #fff;
+  border-color: var(--navy);
+  border-width: 3px;
+  color: var(--navy);
+}
+.key.recv.input.on {
+  background: var(--key-on);
+  color: #fff;
+}
+
+/* テンキー */
+.pad-display {
+  display: block;
+  text-align: right;
+  font-size: 48px;
+  font-weight: 900;
+  border: 3px solid var(--ink);
+  border-radius: 12px;
+  padding: 4px 16px;
+  margin: 8px 0 12px;
+  font-variant-numeric: tabular-nums;
+}
+.pad {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 8px;
+  margin-bottom: 10px;
+}
+.pad-key {
+  min-height: 68px;
+}
+
+/* レジ担当者 */
+.btn.staff {
+  flex-direction: column;
+  gap: 0;
+  line-height: 1.1;
+  border-color: var(--green);
+  border-width: 3px;
+  min-width: 96px;
+}
+.btn.staff .staff-label {
+  font-size: 12px;
+  color: var(--green);
+}
+.btn.staff b {
+  font-size: 20px;
+}
+.btn.staff.unset {
+  border-color: var(--ng);
+  background: #fff5f4;
+}
+.btn.staff.unset .staff-label,
+.btn.staff.unset b {
+  color: var(--ng);
+}
+.opening-staff {
+  font-weight: 800;
+  font-size: 20px;
+  margin-top: 16px;
+}
+.staff-seg {
+  grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+}
+.staff-list {
+  list-style: none;
+  padding: 0;
+  margin: 8px 0;
+}
+.staff-list li {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 0;
+  border-bottom: 1px solid var(--line);
+  font-size: 20px;
+  font-weight: 700;
+}
+.text-input {
+  flex: 1;
+  min-width: 160px;
+  min-height: 56px;
+  border: 2px solid #8a8478;
+  border-radius: 10px;
+  padding: 8px 12px;
+  font-size: 20px;
 }
 
 .reg-result {
@@ -458,12 +549,6 @@ a {
   align-items: flex-end;
   font-weight: 700;
   min-width: 180px;
-}
-.stock b {
-  font-size: 26px;
-}
-.stock.low {
-  color: var(--ng);
 }
 .fc-text {
   font-size: 15px;

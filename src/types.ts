@@ -5,12 +5,13 @@ export type Mode = "live" | "practice";
 export type Settings = {
   unitPrice: number; // 400
   targetCount: number; // 350
-  stockCount: number; // 仕込み数
   plannedCloseTime: string; // 営業終了予定 "16:00"（空なら未設定）
   slackWebhookUrl: string;
   coinWarn: { y100: number; y500: number }; // 黄色警告の閾値（赤は COIN_DANGER 未満）
   muted: boolean;
   mode: Mode;
+  staff: string[]; // 登録した担当者
+  currentStaff: string; // いまのレジ担当者
 };
 
 export type Denoms = {
@@ -42,6 +43,7 @@ export type Session = {
   unlockLog?: UnlockLog[]; // 締め解除の記録
 };
 
+// sale 以外は旧版の「売上外」の記録。集計には含めない
 export type SaleKind = "sale" | "staff" | "sample" | "waste";
 
 export type Sale = {
@@ -58,10 +60,10 @@ export type Sale = {
   voided: boolean;
   voidedAt?: string;
   voidNote?: string;
-  note?: string; // 売上外の記録のメモ
+  staff?: string; // 会計したレジ担当者
 };
 
-export type NoticeType = "open" | "hourly" | "goal" | "soldout" | "close" | "test";
+export type NoticeType = "open" | "hourly" | "goal" | "close" | "test";
 
 export type Notice = {
   id: string;

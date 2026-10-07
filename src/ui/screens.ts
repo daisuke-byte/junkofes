@@ -1,6 +1,6 @@
 import { forecast, forecastShort, forecastText } from "../domain/forecast";
 import { computeChange, describeDenoms, RECEIVE_OPTIONS, sumDenoms, yen, type ReceiveOption } from "../domain/money";
-import { coinWarnings, COUNTDOWN_FROM, KIND_LABEL, remainingStock, STOCK_WARN, totals } from "../domain/stats";
+import { coinWarnings, COUNTDOWN_FROM, totals } from "../domain/stats";
 import { hm, hms } from "../domain/time";
 import type { Store } from "../store";
 import type { Sale } from "../types";
@@ -33,18 +33,9 @@ function topBar(store: Store, now: Date): string {
   const pct = Math.floor(pctRaw);
   const f = session ? forecast(sales, settings, new Date(session.openedAt), now) : null;
   const warns = coinWarnings(store.drawer(), settings);
-  const stock = remainingStock(settings, sales);
   const warnHtml = warns
     .map((w) => `<span class="warn-chip ${w.level}">${ICON_WARN}${w.label} 残${w.count}</span>`)
     .join("");
-  const stockHtml =
-    stock === null
-      ? ""
-      : stock <= 0
-        ? `<span class="warn-chip danger">${ICON_WARN}売り切れ</span>`
-        : stock <= STOCK_WARN
-          ? `<span class="warn-chip warn">${ICON_WARN}在庫 残${stock}</span>`
-          : "";
   return `<header class="topbar">
     <div class="tb-total"><b>${tot.soldQty}</b>杯 / ${yen(tot.revenue)}</div>
     <div class="tb-progress" role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-valuenow="${Math.min(100, pct)}" aria-label="目標に対する進捗">
@@ -52,7 +43,7 @@ function topBar(store: Store, now: Date): string {
       <span>${pct >= 100 ? `目標比 ${pct}%` : `${pct}%`}</span>
     </div>
     <div class="tb-forecast" title="${f ? esc(forecastText(f, settings.targetCount)) : ""}">${f ? esc(forecastShort(f)) : ""}</div>
-    <div class="tb-warns">${warnHtml}${stockHtml}</div>
+    <div class="tb-warns">${warnHtml}</div>
   </header>`;
 }
 
@@ -70,18 +61,21 @@ export function registerScreen(store: Store, ui: UiState, now: Date): string {
   const closing = store.phase !== "open";
   const total = ui.qty * settings.unitPrice;
   const r = ui.option ? computeChange(ui.qty, settings.unitPrice, ui.option, store.drawer()) : null;
-  const stock = remainingStock(settings, sales);
   const f = store.state.session ? forecast(sales, settings, new Date(store.state.session.openedAt), now) : null;
 
   const qtyBtns = [1, 2, 3, 4, 5]
     .map((n) => `<button class="key qty ${ui.qty === n ? "on" : ""}" data-action="qty" data-n="${n}" aria-pressed="${ui.qty === n}">${n}</button>`)
     .join("");
-  const recvBtns = RECEIVE_OPTIONS.map((o) => {
-    const amount = o === "exact" ? total : o;
-    const short = amount < total;
-    return `<button class="key recv ${ui.option === o ? "on" : ""} ${short ? "short" : ""}" data-action="recv" data-opt="${o}" aria-pressed="${ui.option === o}">
+  const custom = ui.option !== null && !RECEIVE_OPTIONS.includes(ui.option);
+  const recvBtns =
+    RECEIVE_OPTIONS.map((o) => {
+      const amount = o === "exact" ? total : o;
+      const short = amount < total;
+      return `<button class="key recv ${ui.option === o ? "on" : ""} ${short ? "short" : ""}" data-action="recv" data-opt="${o}" aria-pressed="${ui.option === o}">
       ${optLabel(o)}${o === "exact" ? `<small>${yen(total)}</small>` : short ? `<small>不足</small>` : ""}</button>`;
-  }).join("");
+    }).join("") +
+    `<button class="key recv input ${custom ? "on" : ""}" data-action="recv-input" aria-pressed="${custom}">
+      ${custom ? `${(ui.option as number).toLocaleString("ja-JP")}<small>金額を入力（変更）</small>` : `金額を入力<small>テンキー</small>`}</button>`;
 
   let result: string;
   if (ui.confirmed && !ui.option) {
@@ -123,16 +117,22 @@ export function registerScreen(store: Store, ui: UiState, now: Date): string {
   <footer class="reg-footer">
     <button class="btn" data-action="void-last" ${store.lastActiveSale() && !closing ? "" : "disabled"}>直前を取り消す</button>
     <a class="btn" href="#/history">履歴</a>
-    <button class="btn" data-action="nonsale" ${closing ? "disabled" : ""}>売上外</button>
     <button class="btn end" data-action="start-closing">営業終了</button>
+    ${staffButton(store)}
     <div class="footer-info">
-      ${stock === null ? "" : `<span class="stock ${stock <= STOCK_WARN ? "low" : ""}">残り在庫 <b>${Math.max(0, stock)}</b>杯</span>`}
       <span class="fc-text">${f ? esc(forecastText(f, settings.targetCount)) : ""}</span>
     </div>
     ${statusIcons(store, ui)}
     <a class="btn icon" href="#/report" aria-label="レポート">📊</a>
     <a class="btn icon" href="#/settings" aria-label="設定">⚙️</a>
   </footer>`;
+}
+
+/** いまのレジ担当者。押すと切り替え */
+export function staffButton(store: Store): string {
+  const name = store.state.settings.currentStaff;
+  return `<button class="btn staff ${name ? "" : "unset"}" data-action="pick-staff" aria-label="レジ担当者を切り替える">
+    <span class="staff-label">担当</span><b>${name ? esc(name) : "未設定"}</b></button>`;
 }
 
 function statusIcons(store: Store, ui: UiState): string {
@@ -154,7 +154,8 @@ export function openingScreen(store: Store): string {
     ${denomInputs()}
     <div class="total-line">準備金の合計 <output id="denom-total">0円</output></div>
     <button class="btn primary xl" data-action="open-session">この金額で営業開始</button>
-    <p class="sub">単価 ${yen(settings.unitPrice)}・目標 ${settings.targetCount}杯・仕込み ${settings.stockCount || "未設定"}${settings.stockCount ? "杯" : ""}
+    <div class="row opening-staff">レジ担当者 ${staffButton(store)}</div>
+    <p class="sub">単価 ${yen(settings.unitPrice)}・目標 ${settings.targetCount}杯
       ${settings.slackWebhookUrl ? "" : "・<b>Slack未設定</b>"}　<a href="#/settings">設定を開く</a></p>
   </main>`;
 }
@@ -171,12 +172,12 @@ export function historyScreen(store: Store): string {
       const t = new Date(s.createdAt);
       return `<tr class="${s.voided ? "voided" : ""} kind-${s.kind}">
         <td>${hms(t)}</td>
-        <td><span class="tag tag-${s.kind}">${KIND_LABEL[s.kind]}</span></td>
+        <td>${esc(s.staff) || "—"}</td>
         <td class="num">${s.qty}杯</td>
-        <td class="num">${s.kind === "sale" ? yen(s.amount) : "—"}</td>
-        <td class="num">${s.kind === "sale" ? yen(s.received) : "—"}</td>
-        <td class="num">${s.kind === "sale" ? yen(s.change) : "—"}</td>
-        <td>${s.voided ? `<span class="tag tag-void">取り消し</span> <small>${esc(s.voidNote)}${s.voidedAt ? `（${hm(new Date(s.voidedAt))}）` : ""}</small>` : s.note ? `<small>${esc(s.note)}</small>` : ""}</td>
+        <td class="num">${yen(s.amount)}</td>
+        <td class="num">${yen(s.received)}</td>
+        <td class="num">${yen(s.change)}</td>
+        <td>${s.voided ? `<span class="tag tag-void">取り消し</span> <small>${esc(s.voidNote)}${s.voidedAt ? `（${hm(new Date(s.voidedAt))}）` : ""}</small>` : ""}</td>
         <td>${!s.voided && !closed ? `<button class="btn small" data-action="void" data-id="${s.id}">取り消す</button>` : ""}</td>
       </tr>`;
     })
@@ -186,13 +187,12 @@ export function historyScreen(store: Store): string {
     <div class="page-head">
       <a class="btn" href="#/">← 戻る</a>
       <h1>履歴</h1>
-      <button class="btn" data-action="nonsale" ${closed ? "disabled" : ""}>＋ 売上外を記録</button>
+      <span></span>
     </div>
-    <p class="sub">販売 ${tot.soldQty}杯 / ${yen(tot.revenue)}・会計 ${tot.saleCount}件・取り消し ${tot.voidCount}件・
-      スタッフ食 ${tot.nonSale.staff}・試食 ${tot.nonSale.sample}・廃棄 ${tot.nonSale.waste}</p>
+    <p class="sub">販売 ${tot.soldQty}杯 / ${yen(tot.revenue)}・会計 ${tot.saleCount}件・取り消し ${tot.voidCount}件</p>
     ${
       sales.length
-        ? `<div class="table-wrap"><table class="history"><thead><tr><th>時刻</th><th>種類</th><th>杯数</th><th>金額</th><th>預かり</th><th>お釣り</th><th>メモ</th><th></th></tr></thead><tbody>${rows}</tbody></table></div>`
+        ? `<div class="table-wrap"><table class="history"><thead><tr><th>時刻</th><th>担当</th><th>杯数</th><th>金額</th><th>預かり</th><th>お釣り</th><th>メモ</th><th></th></tr></thead><tbody>${rows}</tbody></table></div>`
         : `<p class="empty">まだ会計はありません</p>`
     }
   </main>`;
@@ -220,9 +220,10 @@ export function closingScreen(store: Store): string {
     <label class="field" id="diff-note-field">差額の理由（差額がある場合は必須）
       <textarea name="diffNote" id="diff-note" rows="2" placeholder="例：お釣りの渡し間違いの可能性"></textarea></label>
     <div class="two">
-      <label class="field">数えた人<input id="counter" autocomplete="off" placeholder="名前" /></label>
-      <label class="field">確認者<input id="checker" autocomplete="off" placeholder="名前（別の人）" /></label>
+      <label class="field">数えた人<input id="counter" list="staff-list" autocomplete="off" placeholder="名前" /></label>
+      <label class="field">確認者<input id="checker" list="staff-list" autocomplete="off" placeholder="名前（別の人）" /></label>
     </div>
+    <datalist id="staff-list">${store.state.settings.staff.map((n) => `<option value="${esc(n)}"></option>`).join("")}</datalist>
     <p class="form-error" id="close-error" role="alert"></p>
     <button class="btn primary xl" data-action="close-session">締めを確定</button>
   </main>`;
@@ -273,7 +274,6 @@ export function settingsScreen(store: Store): string {
       <div class="two">
         <label class="field">単価（円）<input name="unitPrice" type="number" inputmode="numeric" min="10" step="10" value="${s.unitPrice}" required /></label>
         <label class="field">目標杯数<input name="targetCount" type="number" inputmode="numeric" min="1" value="${s.targetCount}" required /></label>
-        <label class="field">仕込み数（杯・0で在庫管理なし）<input name="stockCount" type="number" inputmode="numeric" min="0" value="${s.stockCount}" /></label>
         <label class="field">営業終了予定<input name="plannedCloseTime" type="time" value="${esc(s.plannedCloseTime)}" /></label>
       </div>
       <h2>小銭残量の警告</h2>
@@ -295,6 +295,25 @@ export function settingsScreen(store: Store): string {
       <p class="form-error" id="settings-error" role="alert"></p>
       <button type="submit" class="btn primary xl">設定を保存</button>
     </form>
+
+    <section class="card">
+      <h2>担当者</h2>
+      <p class="sub">登録した人の中から、会計画面の「担当」ボタンでレジ担当者を切り替えられます。会計ごとに担当者が記録されます。</p>
+      ${
+        s.staff.length
+          ? `<ul class="staff-list">${s.staff
+              .map(
+                (n, i) => `<li><span>${esc(n)}${n === s.currentStaff ? ` <b class="tag tag-sale">レジ担当中</b>` : ""}</span>
+                  <button type="button" class="btn small danger" data-action="staff-remove" data-i="${i}">削除</button></li>`,
+              )
+              .join("")}</ul>`
+          : `<p class="sub"><b>まだ登録されていません。</b></p>`
+      }
+      <form id="staff-form" class="row" novalidate>
+        <input name="name" class="text-input" autocomplete="off" placeholder="名前（例：山田）" maxlength="20" />
+        <button type="submit" class="btn primary">追加</button>
+      </form>
+    </section>
 
     <section class="card">
       <h2>練習 / 本番</h2>

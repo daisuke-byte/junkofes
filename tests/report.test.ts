@@ -6,14 +6,13 @@ import { at, nonSale, sale, T0 } from "./helpers";
 
 describe("CSV", () => {
   it("BOM付き・ヘッダーと1件1行", () => {
-    const csv = salesCsv([sale(1, 2, 1000), sale(2, 1, 500, { voided: true, voidNote: '打ち間違い,"再入力"' }), nonSale(3, "staff", 1)]);
+    const csv = salesCsv([sale(1, 2, 1000, { staff: "山田" }), sale(2, 1, 500, { voided: true, voidNote: '打ち間違い,"再入力"' }), nonSale(3, "staff", 1)]);
     expect(csv.charCodeAt(0)).toBe(0xfeff);
     const lines = csv.slice(1).trimEnd().split("\r\n");
-    expect(lines[0]).toBe("日時,種類,杯数,金額,預かり,お釣り,取り消し,取り消し理由");
-    expect(lines).toHaveLength(4);
-    expect(lines[1]).toBe("2026-10-25 10:01:00,販売,2,800,1000,200,,");
-    expect(lines[2]).toBe('2026-10-25 10:02:00,販売,1,400,500,100,取り消し,"打ち間違い,""再入力"""');
-    expect(lines[3]).toContain(",スタッフ食,1,0,0,0,,");
+    expect(lines[0]).toBe("日時,担当者,杯数,金額,預かり,お釣り,取り消し,取り消し理由");
+    expect(lines).toHaveLength(3); // 旧版の売上外の記録は出力しない
+    expect(lines[1]).toBe("2026-10-25 10:01:00,山田,2,800,1000,200,,");
+    expect(lines[2]).toBe('2026-10-25 10:02:00,,1,400,500,100,取り消し,"打ち間違い,""再入力"""');
   });
 });
 

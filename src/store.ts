@@ -1,10 +1,10 @@
 import type { Database } from "./db";
 import { computeChange, emptyDenoms, sumDenoms, type ReceiveOption } from "./domain/money";
-import { closeText, goalText, hourlyText, openText, soldoutText } from "./domain/messages";
-import { dueHourlySlot, expectedDrawer, remainingStock, totals } from "./domain/stats";
+import { closeText, goalText, hourlyText, openText } from "./domain/messages";
+import { dueHourlySlot, expectedDrawer, totals } from "./domain/stats";
 import { newId } from "./domain/time";
 import type { Notifier } from "./notify";
-import type { Denoms, Mode, Sale, SaleKind, Session, Settings } from "./types";
+import type { Denoms, Mode, Sale, Session, Settings } from "./types";
 
 export type SaleEvent = {
   sale: Sale;
@@ -12,7 +12,6 @@ export type SaleEvent = {
   after: number;
   reachedGoal: boolean;
   milestone: number | null; // 100/200/300 杯
-  soldOut: boolean;
 };
 
 export type State = {
@@ -135,9 +134,9 @@ export class Store {
       receivedDenoms: r.receivedDenoms,
       changeDenoms: r.changeDenoms,
       voided: false,
+      staff: settings.currentStaff || undefined,
     };
     const before = totals(sales).soldQty;
-    const stockBefore = remainingStock(settings, sales);
     await this.db.putSale(sale);
     const next = [...sales, sale];
     this.set({ sales: next });
@@ -146,18 +145,9 @@ export class Store {
     const target = settings.targetCount;
     const reachedGoal = before < target && after >= target;
     const milestone = [100, 200, 300].find((m) => m < target && before < m && after >= m) ?? null;
-    const stockAfter = remainingStock(settings, next);
-    const soldOut = stockBefore !== null && stockAfter !== null && stockBefore > 0 && stockAfter <= 0;
     if (reachedGoal)
       await this.notify("goal", goalText(settings, session, new Date(sale.createdAt)), { id: `${session.id}:goal`, sessionId: session.id });
-    if (soldOut) await this.soldOutNotice(next);
-    return { sale, before, after, reachedGoal, milestone, soldOut };
-  }
-
-  private async soldOutNotice(sales: Sale[]) {
-    const { session, settings } = this.state;
-    if (!session) return;
-    await this.notify("soldout", soldoutText(settings, sales, new Date()), { id: `${session.id}:soldout`, sessionId: session.id });
+    return { sale, before, after, reachedGoal, milestone };
   }
 
   // --- 取り消し (F02) ---
@@ -177,33 +167,6 @@ export class Store {
       if (!s.voided) return s;
     }
     return null;
-  }
-
-  // --- 売上外の記録 (F12) ---
-
-  async addNonSale(kind: Exclude<SaleKind, "sale">, qty: number, note: string): Promise<void> {
-    const { session, settings, sales } = this.state;
-    if (!session || this.phase === "closed") throw new Error("営業中ではありません");
-    const sale: Sale = {
-      id: newId(),
-      sessionId: session.id,
-      createdAt: new Date().toISOString(),
-      kind,
-      qty,
-      amount: 0,
-      received: 0,
-      change: 0,
-      receivedDenoms: emptyDenoms(),
-      changeDenoms: emptyDenoms(),
-      voided: false,
-      note: note || undefined,
-    };
-    const stockBefore = remainingStock(settings, sales);
-    await this.db.putSale(sale);
-    const next = [...sales, sale];
-    this.set({ sales: next });
-    const stockAfter = remainingStock(settings, next);
-    if (stockBefore !== null && stockAfter !== null && stockBefore > 0 && stockAfter <= 0) await this.soldOutNotice(next);
   }
 
   // --- レジ締め (F06) ---

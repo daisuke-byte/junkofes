@@ -3,7 +3,6 @@ import { Database } from "./db";
 import { salesCsv } from "./domain/csv";
 import { testText } from "./domain/messages";
 import { sumDenoms, yen, type ReceiveOption } from "./domain/money";
-import { KIND_LABEL } from "./domain/stats";
 import { duration, hm, ymd } from "./domain/time";
 import { playConfirm, playError, playFanfare, runFireworks, setMuted, unlockAudio } from "./effects";
 import { isWebhookUrl, Notifier, slackTransport } from "./notify";
@@ -109,7 +108,7 @@ async function confirmSale() {
     afterSale(ev);
   } catch (e) {
     playError();
-    toast(`保存に失敗したため確定していません：${(e as Error).message}`, "error", 5000);
+    toast(`保存に失敗したため確定していません：${(e as Error).message}`, "error");
   } finally {
     ui.saving = false;
     render();
@@ -119,7 +118,6 @@ async function confirmSale() {
 function afterSale(ev: SaleEvent) {
   if (ev.reachedGoal) setTimeout(() => celebrate(ev), 700);
   else if (ev.milestone) banner(`🎉 ${ev.milestone}杯 突破！`);
-  if (ev.soldOut) toast("在庫が0杯になりました（売り切れ）", "error", 5000);
 }
 
 function banner(text: string) {
@@ -161,17 +159,17 @@ function celebrate(ev: SaleEvent) {
   root.querySelector(".celebrate")!.addEventListener("click", close, { once: true });
 }
 
-// --- 取り消し・売上外 ---
+// --- 取り消し ---
 
 async function voidSale(id: string, isLast: boolean) {
   const s = store.state.sales.find((x) => x.id === id);
   if (!s) return;
-  const desc = `${hm(new Date(s.createdAt))}　${KIND_LABEL[s.kind]} ${s.qty}杯${s.kind === "sale" ? `　${yen(s.amount)}（預かり ${yen(s.received)} / お釣り ${yen(s.change)}）` : ""}`;
+  const desc = `${hm(new Date(s.createdAt))}　${s.qty}杯　${yen(s.amount)}（預かり ${yen(s.received)} / お釣り ${yen(s.change)}）${s.staff ? `　担当 ${s.staff}` : ""}`;
   const fd = await openModal(
     `<h2>${isLast ? "直前の会計を取り消す" : "会計を取り消す"}</h2>
      <p class="modal-desc">${esc(desc)}</p>
      <label class="field">取り消しの理由<input name="note" autocomplete="off" ${isLast ? 'value="打ち間違い"' : 'placeholder="例：杯数の打ち間違い"'} autofocus /></label>
-     ${s.kind === "sale" ? `<p class="sub">現金を戻す場合：お客様に ${yen(s.amount)} を返金してください。</p>` : ""}`,
+     <p class="sub">現金を戻す場合：お客様に ${yen(s.amount)} を返金してください。</p>`,
     {
       submitLabel: "取り消す",
       danger: true,
@@ -184,35 +182,105 @@ async function voidSale(id: string, isLast: boolean) {
     if (ui.confirmed?.id === id) ui.confirmed = null;
     toast("取り消しました", "ok");
   } catch (e) {
-    toast(`取り消しに失敗しました：${(e as Error).message}`, "error", 5000);
+    toast(`取り消しに失敗しました：${(e as Error).message}`, "error");
   }
   render(true);
 }
 
-async function addNonSale() {
-  const fd = await openModal(
-    `<h2>売上外の記録</h2>
-     <p class="sub">売上には入りませんが、在庫からは減ります。</p>
-     <div class="seg">
-       ${(["staff", "sample", "waste"] as const)
-         .map((k, i) => `<label><input type="radio" name="kind" value="${k}" ${i === 0 ? "checked" : ""}/><span>${KIND_LABEL[k]}</span></label>`)
-         .join("")}
+// --- 金額入力（テンキー） ---
+
+let padValue = "";
+
+function padDisplay() {
+  const out = $("#pad-display");
+  if (out) out.textContent = `${Number(padValue || 0).toLocaleString("ja-JP")}円`;
+  const input = $<HTMLInputElement>('#modal-root [name="amount"]');
+  if (input) input.value = padValue;
+}
+
+async function inputAmount() {
+  const total = ui.qty * store.state.settings.unitPrice;
+  padValue = typeof ui.option === "number" ? String(ui.option) : "";
+  const keys = ["7", "8", "9", "4", "5", "6", "1", "2", "3", "00", "0", "back"];
+  const pending = openModal(
+    `<h2>預かり金額を入力</h2>
+     <p class="sub">合計 <b>${yen(total)}</b>（${ui.qty}杯）</p>
+     <input type="hidden" name="amount" value="${padValue}" />
+     <output class="pad-display" id="pad-display">0円</output>
+     <div class="pad">
+       ${keys.map((k) => `<button type="button" class="key pad-key" data-pad="${k}" ${k === "back" ? 'aria-label="1文字消す"' : ""}>${k === "back" ? "⌫" : k}</button>`).join("")}
      </div>
-     <label class="field">杯数<input name="qty" type="number" inputmode="numeric" min="1" value="1" /></label>
-     <label class="field">メモ（任意）<input name="note" autocomplete="off" /></label>`,
+     <button type="button" class="btn small" data-pad="clear">クリア</button>`,
     {
-      submitLabel: "記録する",
-      validate: (f) => (Number(f.get("qty")) >= 1 && Number.isInteger(Number(f.get("qty"))) ? null : "杯数を1以上の整数で入力してください"),
+      submitLabel: "この金額で決定",
+      validate: (f) => {
+        const n = Number(f.get("amount") || 0);
+        if (!n) return "金額を入力してください";
+        if (n % 10 !== 0) return "10円単位で入力してください";
+        if (n < total) return `合計 ${yen(total)} より ${yen(total - n)} 少ないです`;
+        return null;
+      },
     },
   );
+  padDisplay();
+  const fd = await pending;
   if (!fd) return;
-  try {
-    const kind = fd.get("kind") as "staff" | "sample" | "waste";
-    await store.addNonSale(kind, Number(fd.get("qty")), String(fd.get("note") ?? "").trim());
-    toast(`${KIND_LABEL[kind]} ${fd.get("qty")}杯を記録しました`, "ok");
-  } catch (e) {
-    toast(`記録に失敗しました：${(e as Error).message}`, "error", 5000);
+  ui.confirmed = null;
+  ui.option = Number(fd.get("amount"));
+  render();
+}
+
+// --- レジ担当者 ---
+
+async function pickStaff() {
+  const { staff, currentStaff } = store.state.settings;
+  if (staff.length === 0) {
+    const fd = await openModal(
+      `<h2>レジ担当者</h2><p>担当者がまだ登録されていません。設定画面の「担当者」で名前を登録してください。</p>`,
+      { submitLabel: "設定を開く" },
+    );
+    if (fd) go("settings");
+    return;
   }
+  const fd = await openModal(
+    `<h2>レジ担当者を切り替える</h2>
+     <div class="seg staff-seg">
+       ${staff
+         .map((n) => `<label><input type="radio" name="staff" value="${esc(n)}" ${n === currentStaff ? "checked" : ""}/><span>${esc(n)}</span></label>`)
+         .join("")}
+     </div>`,
+    { submitLabel: "切り替える", validate: (f) => (f.get("staff") ? null : "担当者を選んでください") },
+  );
+  if (!fd) return;
+  const name = String(fd.get("staff"));
+  await store.updateSettings({ currentStaff: name });
+  toast(`レジ担当を ${name} さんにしました`, "ok");
+  render(true);
+}
+
+async function addStaff(form: HTMLFormElement) {
+  const input = form.querySelector<HTMLInputElement>('[name="name"]')!;
+  const name = input.value.trim();
+  if (!name) return toast("名前を入力してください", "error");
+  const { staff, currentStaff } = store.state.settings;
+  if (staff.includes(name)) return toast(`${name} さんは登録済みです`, "error");
+  await store.updateSettings({ staff: [...staff, name], currentStaff: currentStaff || name });
+  toast(`${name} さんを登録しました`, "ok");
+  render(true);
+  $<HTMLInputElement>('#staff-form [name="name"]')?.focus();
+}
+
+async function removeStaff(i: number) {
+  const { staff, currentStaff } = store.state.settings;
+  const name = staff[i];
+  if (name === undefined) return;
+  const fd = await openModal(`<h2>${esc(name)} さんを削除しますか？</h2><p class="sub">これまでの会計に記録された名前は残ります。</p>`, {
+    submitLabel: "削除",
+    danger: true,
+  });
+  if (!fd) return;
+  const next = staff.filter((_, j) => j !== i);
+  await store.updateSettings({ staff: next, currentStaff: currentStaff === name ? (next[0] ?? "") : currentStaff });
   render(true);
 }
 
@@ -233,7 +301,7 @@ async function openSession() {
     toast("営業を開始しました", "ok");
     go("register");
   } catch (e) {
-    toast(`保存に失敗しました：${(e as Error).message}`, "error", 5000);
+    toast(`保存に失敗しました：${(e as Error).message}`, "error");
   }
 }
 
@@ -285,7 +353,7 @@ async function closeSession() {
     toast("締めを確定しました", "ok");
     go("report");
   } catch (e) {
-    toast(`保存に失敗しました：${(e as Error).message}`, "error", 5000);
+    toast(`保存に失敗しました：${(e as Error).message}`, "error");
   }
 }
 
@@ -332,10 +400,10 @@ async function makePdf() {
     pdfFile = new File([blob], `中村韓国キッチン_レポート_${fileStamp()}.pdf`, { type: "application/pdf" });
     if (pdfUrl) URL.revokeObjectURL(pdfUrl);
     pdfUrl = URL.createObjectURL(pdfFile);
-    toast("PDFを作成しました。「PDFを共有」からSlackへ送れます", "ok", 4000);
+    toast("PDFを作成しました。「PDFを共有」からSlackへ送れます", "ok");
     render(true);
   } catch (e) {
-    toast(`PDFの作成に失敗しました：${(e as Error).message}`, "error", 5000);
+    toast(`PDFの作成に失敗しました：${(e as Error).message}`, "error");
   }
 }
 
@@ -349,14 +417,12 @@ async function saveSettings(form: HTMLFormElement) {
   const url = String(fd.get("slackWebhookUrl") ?? "").trim();
   if (!Number.isInteger(unitPrice) || unitPrice < 10 || unitPrice % 10 !== 0) return void (err.textContent = "単価は10円単位の整数にしてください");
   if (!Number.isInteger(num("targetCount")) || num("targetCount") < 1) return void (err.textContent = "目標杯数は1以上の整数にしてください");
-  if (!Number.isInteger(num("stockCount")) || num("stockCount") < 0) return void (err.textContent = "仕込み数は0以上の整数にしてください");
   if (url && !isWebhookUrl(url)) return void (err.textContent = "Webhook URL は https://hooks.slack.com/ で始まるURLを入力してください");
   err.textContent = "";
   const muted = fd.get("muted") === "on";
   await store.updateSettings({
     unitPrice,
     targetCount: num("targetCount"),
-    stockCount: num("stockCount"),
     plannedCloseTime: String(fd.get("plannedCloseTime") ?? ""),
     slackWebhookUrl: url,
     coinWarn: { y100: Math.max(0, num("warn100") || 0), y500: Math.max(0, num("warn500") || 0) },
@@ -372,7 +438,7 @@ async function testSlack() {
   const url = input?.value.trim() || store.state.settings.slackWebhookUrl;
   if (!url || !isWebhookUrl(url)) return toast("Webhook URL を入力してください", "error");
   const r = await notifier.sendNow(url, testText());
-  if (r === "ok") toast("送信しました。Slack に届いたか確認してください", "ok", 4000);
+  if (r === "ok") toast("送信しました。Slack に届いたか確認してください", "ok");
   else if (r === "offline") toast("オフラインのため送信できません", "error");
   else toast("送信に失敗しました。URLと通信状態を確認してください", "error");
 }
@@ -470,8 +536,12 @@ app.addEventListener("click", (e) => {
     }
     case "void":
       return void voidSale(el.dataset.id!, false);
-    case "nonsale":
-      return void addNonSale();
+    case "recv-input":
+      return void inputAmount();
+    case "pick-staff":
+      return void pickStaff();
+    case "staff-remove":
+      return void removeStaff(Number(el.dataset.i));
     case "start-closing":
       return void startClosing();
     case "cancel-closing":
@@ -525,12 +595,21 @@ app.addEventListener("submit", (e) => {
   if (form.id === "settings-form") {
     e.preventDefault();
     void saveSettings(form);
+  } else if (form.id === "staff-form") {
+    e.preventDefault();
+    void addStaff(form);
   }
 });
 
 $("#modal-root")!.addEventListener("click", (e) => {
-  if ((e.target as HTMLElement).closest('[data-action="modal-cancel"]')) {
-    closeModal(null);
+  const t = e.target as HTMLElement;
+  if (t.closest('[data-action="modal-cancel"]')) return closeModal(null);
+  const key = t.closest<HTMLElement>("[data-pad]")?.dataset.pad;
+  if (key) {
+    if (key === "back") padValue = padValue.slice(0, -1);
+    else if (key === "clear") padValue = "";
+    else if (padValue.length < 6) padValue = (padValue + key).replace(/^0+/, "");
+    padDisplay();
   }
 });
 

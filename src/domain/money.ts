@@ -69,14 +69,14 @@ export function describeDenoms(d: Denoms): string {
     .join("、");
 }
 
-/** 預かりボタン。exact は「ちょうど」 */
-export type ReceiveOption = "exact" | 500 | 1000 | 2000 | 5000 | 10000;
+/** 預かり。exact は「ちょうど」、数値は預かった金額（ボタンまたは金額入力） */
+export type ReceiveOption = "exact" | number;
 export const RECEIVE_OPTIONS: ReceiveOption[] = ["exact", 500, 1000, 2000, 5000, 10000];
 
 /**
- * 預かりボタンを金種に対応させる（要件 5章）。
+ * 預かった金額を金種に対応させる（要件 5章）。
  * 「ちょうど」は 100円玉で払われたものとみなす（端数は 50円・10円玉）。
- * 2,000円は 1,000円札×2 として扱う。
+ * それ以外は大きい金種から分解する（2,000円は 1,000円札×2、3,000円は ×3 など）。
  */
 export function receivedFor(option: ReceiveOption, total: number): { amount: number; denoms: Denoms } {
   const d = emptyDenoms();
@@ -88,12 +88,7 @@ export function receivedFor(option: ReceiveOption, total: number): { amount: num
     d.y10 = Math.floor(rest / 10);
     return { amount: total, denoms: d };
   }
-  if (option === 500) d.y500 = 1;
-  else if (option === 1000) d.y1000 = 1;
-  else if (option === 2000) d.y1000 = 2;
-  else if (option === 5000) d.y5000 = 1;
-  else d.y10000 = 1;
-  return { amount: option, denoms: d };
+  return { amount: option, denoms: breakdown(option) };
 }
 
 export type ChangeResult =

@@ -1,16 +1,8 @@
-import type { Denoms, Sale, SaleKind, Session, Settings } from "../types";
+import type { Denoms, Sale, Session, Settings } from "../types";
 import { addDenoms, subDenoms } from "./money";
 
 export const COIN_DANGER = 5; // この枚数未満で赤の警告
-export const STOCK_WARN = 20; // 残り在庫の警告
 export const COUNTDOWN_FROM = 10; // 目標までのカウントダウン開始
-
-export const KIND_LABEL: Record<SaleKind, string> = {
-  sale: "販売",
-  staff: "スタッフ食",
-  sample: "試食",
-  waste: "廃棄",
-};
 
 const t = (s: Sale) => Date.parse(s.createdAt);
 
@@ -32,8 +24,6 @@ export type Totals = {
   soldQty: number; // 販売杯数
   revenue: number; // 売上金額
   saleCount: number; // 会計件数
-  consumedQty: number; // 在庫から減った杯数（売上外を含む）
-  nonSale: Record<Exclude<SaleKind, "sale">, number>;
   voidCount: number;
 };
 
@@ -42,23 +32,17 @@ export function totals(sales: Sale[]): Totals {
     soldQty: 0,
     revenue: 0,
     saleCount: 0,
-    consumedQty: 0,
-    nonSale: { staff: 0, sample: 0, waste: 0 },
     voidCount: 0,
   };
   for (const s of sales) {
+    if (s.kind !== "sale") continue;
     if (s.voided) {
       r.voidCount++;
       continue;
     }
-    r.consumedQty += s.qty;
-    if (s.kind === "sale") {
-      r.soldQty += s.qty;
-      r.revenue += s.amount;
-      r.saleCount++;
-    } else {
-      r.nonSale[s.kind] += s.qty;
-    }
+    r.soldQty += s.qty;
+    r.revenue += s.amount;
+    r.saleCount++;
   }
   return r;
 }
@@ -131,10 +115,21 @@ export function coinWarnings(drawer: Denoms, settings: Settings): CoinWarning[] 
   return out;
 }
 
-/** 残り在庫。仕込み数が 0（未設定）なら null */
-export function remainingStock(settings: Settings, sales: Sale[]): number | null {
-  if (!settings.stockCount) return null;
-  return settings.stockCount - totals(sales).consumedQty;
+export type StaffTotal = { name: string; qty: number; revenue: number; count: number };
+
+/** レジ担当者ごとの販売杯数・売上 */
+export function staffTotals(sales: Sale[]): StaffTotal[] {
+  const map = new Map<string, StaffTotal>();
+  for (const s of sales) {
+    if (s.voided || s.kind !== "sale") continue;
+    const name = s.staff || "（未設定）";
+    const r = map.get(name) ?? { name, qty: 0, revenue: 0, count: 0 };
+    r.qty += s.qty;
+    r.revenue += s.amount;
+    r.count++;
+    map.set(name, r);
+  }
+  return [...map.values()].sort((a, b) => b.qty - a.qty);
 }
 
 /** 毎正時の定期報告の対象時間帯。まだ不要なら null */

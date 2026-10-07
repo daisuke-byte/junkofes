@@ -1,7 +1,7 @@
 import type { Sale, Session, Settings } from "../types";
 import { forecast, forecastText } from "./forecast";
 import { sumDenoms, yen } from "./money";
-import { coinWarnings, expectedDrawer, remainingStock, soldBetween, totals } from "./stats";
+import { coinWarnings, expectedDrawer, soldBetween, totals } from "./stats";
 import { duration, hm } from "./time";
 
 export const SHOP = "中村韓国キッチン";
@@ -21,10 +21,8 @@ export function hourlyText(settings: Settings, session: Session, sales: Sale[], 
     `直近1時間 ${soldBetween(sales, now.getTime() - 3600000, now.getTime())}杯`,
   ];
   const f = forecast(sales, settings, new Date(session.openedAt), now);
-  if (f.kind === "eta") lines.push(`${f.goalKind === "soldout" ? "売り切れ予測" : "達成予測"} ${hm(f.at)} ごろ`);
+  if (f.kind === "eta") lines.push(`達成予測 ${hm(f.at)} ごろ`);
   else lines.push(`予測 ${forecastText(f, settings.targetCount)}`);
-  const stock = remainingStock(settings, sales);
-  if (stock !== null) lines.push(`残り在庫 ${Math.max(0, stock)}杯`);
   const drawer = expectedDrawer(session.openingFloat, sales);
   const warns = coinWarnings(drawer, settings);
   if (warns.length === 0) lines.push(`小銭 100円玉 ${drawer.y100}枚 / 500円玉 ${drawer.y500}枚`);
@@ -34,11 +32,6 @@ export function hourlyText(settings: Settings, session: Session, sales: Sale[], 
 
 export function goalText(settings: Settings, session: Session, at: Date): string {
   return `${prefix(settings)}🎉 ${SHOP} ${settings.targetCount}杯達成！\n達成時刻 ${hm(at)}\n営業開始から ${duration(at.getTime() - Date.parse(session.openedAt))}`;
-}
-
-export function soldoutText(settings: Settings, sales: Sale[], at: Date): string {
-  const tot = totals(sales);
-  return `${prefix(settings)}🈵 ${SHOP} 売り切れました\n売り切れ時刻 ${hm(at)}\n最終 ${tot.soldQty}杯 / ${yen(tot.revenue)}`;
 }
 
 export function closeText(settings: Settings, session: Session, sales: Sale[]): string {

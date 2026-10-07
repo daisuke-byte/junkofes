@@ -34,24 +34,34 @@ describe("会計の確定と保存", () => {
     expect(store.state.sales).toHaveLength(0);
   });
 
+  it("会計にレジ担当者が記録され、入力した金額でお釣りが出る", async () => {
+    const { store } = await setup();
+    await store.updateSettings({ staff: ["山田", "佐藤"], currentStaff: "山田" });
+    await store.openSession({ ...emptyDenoms(), y100: 30, y500: 10 });
+    const a = await store.confirmSale(2, 3000);
+    expect(a.sale).toMatchObject({ staff: "山田", received: 3000, change: 2200, receivedDenoms: { y1000: 3 } });
+    expect(a.sale.changeDenoms).toMatchObject({ y1000: 2, y100: 2 });
+    await store.updateSettings({ currentStaff: "佐藤" });
+    const b = await store.confirmSale(1, 1500);
+    expect(b.sale).toMatchObject({ staff: "佐藤", change: 1100 });
+  });
+
   it("預かり不足は確定できない", async () => {
     const { store } = await setup();
     await store.openSession(emptyDenoms());
     await expect(store.confirmSale(2, 500)).rejects.toThrow("300円 不足");
   });
 
-  it("目標達成・節目・売り切れのイベントと通知", async () => {
+  it("目標達成のイベントと通知", async () => {
     const { store, sent } = await setup();
-    await store.updateSettings({ targetCount: 10, stockCount: 12 });
+    await store.updateSettings({ targetCount: 10 });
     await store.openSession(emptyDenoms());
     const e1 = await store.confirmSale(5, 2000);
     expect(e1.reachedGoal).toBe(false);
     const e2 = await store.confirmSale(5, 2000);
     expect(e2.reachedGoal).toBe(true);
-    await store.addNonSale("staff", 2, "");
     await store.tick();
     expect(sent.some((t) => t.includes("10杯達成"))).toBe(true);
-    expect(sent.some((t) => t.includes("売り切れ"))).toBe(true);
   });
 
   it("締め確定でロックされ、会計も取り消しもできない。解除は記録が残る", async () => {

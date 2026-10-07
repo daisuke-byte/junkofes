@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { sumDenoms } from "../src/domain/money";
-import { coinWarnings, expectedDrawer, totals } from "../src/domain/stats";
+import { coinWarnings, expectedDrawer, staffTotals, totals } from "../src/domain/stats";
 import { nonSale, sale, session, settings } from "./helpers";
 
 describe("理論残高（準備金 + 会計 − 取り消し）", () => {
@@ -25,13 +25,18 @@ describe("理論残高（準備金 + 会計 − 取り消し）", () => {
     expect(totals(sales)).toMatchObject({ soldQty: 1, revenue: 400, voidCount: 1 });
   });
 
-  it("売上外は現金に影響しないが在庫は減る", () => {
+  it("旧版の売上外の記録は集計にも現金にも含めない", () => {
     const sales = [sale(1, 2), nonSale(2, "staff", 3), nonSale(3, "waste", 1)];
     expect(sumDenoms(expectedDrawer(float, sales))).toBe(15800);
-    const t = totals(sales);
-    expect(t.soldQty).toBe(2);
-    expect(t.consumedQty).toBe(6);
-    expect(t.nonSale).toEqual({ staff: 3, sample: 0, waste: 1 });
+    expect(totals(sales)).toMatchObject({ soldQty: 2, saleCount: 1, voidCount: 0 });
+  });
+
+  it("担当者ごとの集計", () => {
+    const sales = [sale(1, 2, "exact", { staff: "山田" }), sale(2, 1, "exact", { staff: "佐藤" }), sale(3, 3, "exact", { staff: "山田" }), sale(4, 5, "exact", { staff: "佐藤", voided: true })];
+    expect(staffTotals(sales)).toEqual([
+      { name: "山田", qty: 5, revenue: 2000, count: 2 },
+      { name: "佐藤", qty: 1, revenue: 400, count: 1 },
+    ]);
   });
 
   it("小銭の警告：100円玉20枚未満で黄、5枚未満で赤", () => {

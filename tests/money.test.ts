@@ -55,6 +55,14 @@ describe("お釣り計算と金種分解（1〜10杯 × 全預かりパターン
     expect(receivedFor("exact", 450).denoms).toMatchObject({ y100: 4, y50: 1 });
   });
 
+  it("入力した金額は大きい金種から分解する", () => {
+    expect(receivedFor(3000, 1200).denoms).toMatchObject({ y1000: 3 });
+    expect(receivedFor(1500, 1200).denoms).toMatchObject({ y1000: 1, y500: 1 });
+    expect(receivedFor(2400, 2400).denoms).toMatchObject({ y1000: 2, y100: 4 });
+    const r = computeChange(3, 400, 1300);
+    expect(r.ok && r.change).toBe(100);
+  });
+
   it("2,000円は1,000円札×2", () => {
     expect(receivedFor(2000, 800).denoms).toMatchObject({ y1000: 2 });
   });

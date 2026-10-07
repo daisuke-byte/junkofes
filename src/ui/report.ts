@@ -1,6 +1,6 @@
 import { sumDenoms, yen } from "../domain/money";
 import { SHOP } from "../domain/messages";
-import { peakSlot, reachedAt, slots30, totals, type Slot } from "../domain/stats";
+import { peakSlot, reachedAt, slots30, staffTotals, totals, type Slot, type StaffTotal } from "../domain/stats";
 import { duration, hm, ymdJa } from "../domain/time";
 import type { Sale, Session, Settings } from "../types";
 import { esc } from "./dom";
@@ -25,7 +25,7 @@ export type ReportData = {
   diffNote?: string;
   counter?: string;
   checker?: string;
-  nonSale: { staff: number; sample: number; waste: number };
+  staff: StaffTotal[];
   voidCount: number;
   saleCount: number;
   practice: boolean;
@@ -58,7 +58,7 @@ export function reportData(settings: Settings, session: Session, sales: Sale[], 
     diffNote: session.diffNote,
     counter: session.counter,
     checker: session.checker,
-    nonSale: tot.nonSale,
+    staff: staffTotals(sales),
     voidCount: tot.voidCount,
     saleCount: tot.saleCount,
     practice: session.mode === "practice",
@@ -101,7 +101,7 @@ export function reportHtml(d: ReportData, closed: boolean): string {
     ["会計件数", `${d.saleCount}件（取り消し ${d.voidCount}件）`],
     ["ピーク時間帯", d.peak ? `${hm(d.peak.start)}〜 ${d.peak.qty}杯` : "—"],
     [`${d.target}杯の達成`, d.goalAt ? `${hm(d.goalAt)}（開始から ${duration(d.goalAt.getTime() - d.openedAt.getTime())}）` : `未達（最終 ${d.soldQty}杯）`],
-    ["売上外", `スタッフ食 ${d.nonSale.staff}杯・試食 ${d.nonSale.sample}杯・廃棄 ${d.nonSale.waste}杯`],
+    ["担当者別", d.staff.length ? d.staff.map((s) => `${esc(s.name)} ${s.qty}杯（${s.count}件）`).join("・") : "—"],
     ["準備金", yen(d.float)],
   ];
   if (closed) {
@@ -235,7 +235,7 @@ export function drawReportCanvas(d: ReportData, closed: boolean): HTMLCanvasElem
     ["ピーク時間帯", d.peak ? `${hm(d.peak.start)}〜（${d.peak.qty}杯）` : "—"],
     [`${d.target}杯の達成`, d.goalAt ? `${hm(d.goalAt)}（営業開始から ${duration(d.goalAt.getTime() - d.openedAt.getTime())}）` : `未達（最終 ${d.soldQty}杯）`],
     ["会計件数", `${d.saleCount}件　取り消し ${d.voidCount}件`],
-    ["売上外", `スタッフ食 ${d.nonSale.staff}杯　試食 ${d.nonSale.sample}杯　廃棄 ${d.nonSale.waste}杯`],
+    ["担当者別", d.staff.length ? d.staff.map((s) => `${s.name} ${s.qty}杯`).join("　") : "—"],
     ["準備金", yen(d.float)],
   ];
   if (closed) {

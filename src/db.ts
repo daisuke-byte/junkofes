@@ -6,12 +6,13 @@ const DB_VERSION = 1;
 export const DEFAULT_SETTINGS: Settings = {
   unitPrice: 400,
   targetCount: 350,
-  stockCount: 400,
   plannedCloseTime: "16:00",
   slackWebhookUrl: "",
   coinWarn: { y100: 20, y500: 10 },
   muted: false,
   mode: "live",
+  staff: [],
+  currentStaff: "",
 };
 
 type StoreName = "settings" | "sessions" | "sales" | "notices";
@@ -81,7 +82,8 @@ export class Database {
   async sales(sessionId: string): Promise<Sale[]> {
     const tx = this.db.transaction("sales", "readonly");
     const list = (await req(tx.objectStore("sales").index("sessionId").getAll(sessionId))) as Sale[];
-    return list.sort((a, b) => Date.parse(a.createdAt) - Date.parse(b.createdAt));
+    // 旧版の「売上外」の記録は使わない
+    return list.filter((s) => s.kind === "sale").sort((a, b) => Date.parse(a.createdAt) - Date.parse(b.createdAt));
   }
 
   putSale(s: Sale): Promise<void> {
