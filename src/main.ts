@@ -1,3 +1,6 @@
+import "@fontsource/playfair-display/latin-800-italic.css";
+import "@fontsource/playfair-display/latin-700.css";
+import "@fontsource/montserrat/latin-600.css";
 import "./style.css";
 import { Database } from "./db";
 import { salesCsv } from "./domain/csv";
@@ -6,7 +9,7 @@ import { testText } from "./domain/messages";
 import { sumDenoms, yen, type ReceiveOption } from "./domain/money";
 import { totals } from "./domain/stats";
 import { duration, hm, ymd } from "./domain/time";
-import { playConfirm, playCracker, playError, playFanfare, playMilestone, runFireworks, runParty, setMuted, unlockAudio } from "./effects";
+import { playConfirm, playCracker, playError, playFanfare, playMilestone, runParty, setMuted, unlockAudio } from "./effects";
 import { isWebhookUrl, Notifier, slackTransport } from "./notify";
 import { canvasToPdf } from "./pdf";
 import { Store, type SaleEvent } from "./store";
@@ -122,102 +125,119 @@ function afterSale(ev: SaleEvent) {
   else if (ev.milestone) setTimeout(() => milestonePop(ev, ev.milestone!), 250);
 }
 
-// --- キリ番の演出 ---
+// --- お祝いの演出（30杯から10杯ごと・目標達成） ---
 
-/** 何時ごろ目標に届きそうかを、演出用の文言にする */
-function forecastLines(now: Date): { main: string; sub: string } {
+type Stat = { label: string; value: string; unit: string; note: string };
+
+/** 何時ごろ目標に届きそうかを、演出用にまとめる */
+function forecastStat(now: Date): Stat | null {
   const { settings, session, sales } = store.state;
+  if (!session) return null;
   const target = settings.targetCount;
   const sold = totals(sales).soldQty;
-  if (!session) return { main: "", sub: "" };
   const opened = new Date(session.openedAt);
   const f = forecast(sales, settings, opened, now);
-  const mins = (now.getTime() - opened.getTime()) / 60000;
-  const perHour = mins >= 3 ? Math.round((sold / mins) * 60) : 0;
   switch (f.kind) {
     case "eta":
-      return { main: `このペースなら <b>${hm(f.at)}</b> ごろ ${target}杯達成！`, sub: `目標まで あと ${f.remaining}杯` };
+      return { label: "達成予測", value: hm(f.at), unit: "ごろ", note: `${target}杯まで あと ${f.remaining}杯` };
     case "byClose":
-      return { main: `このペースなら 終了までに 約<b>${f.projected}</b>杯！`, sub: `目標 ${target}杯まで あと ${target - sold}杯。ペースアップ！` };
+      return { label: "終了時の見込み", value: String(f.projected), unit: "杯", note: `${target}杯まで あと ${target - sold}杯` };
     case "done":
-      return { main: `目標 ${target}杯 達成済み！`, sub: `目標比 ${Math.floor((sold / target) * 100)}%` };
-    default:
-      return {
-        main: perHour ? `いまのペースは 1時間に 約<b>${perHour}</b>杯！` : `いいスタート！`,
-        sub: `目標 ${target}杯まで あと ${target - sold}杯（予測は20杯から）`,
-      };
+      return { label: "目標比", value: String(Math.floor((sold / target) * 100)), unit: "%", note: `目標 ${target}杯 達成済み` };
+    default: {
+      const mins = (now.getTime() - opened.getTime()) / 60000;
+      const perHour = mins >= 3 ? Math.round((sold / mins) * 60) : 0;
+      return perHour
+        ? { label: "いまのペース", value: String(perHour), unit: "杯 / 時", note: `${target}杯まで あと ${target - sold}杯` }
+        : null;
+    }
   }
 }
 
-/** キリ番（10杯ごとなど）でクラッカーと音楽のドッキリ演出 */
-function milestonePop(ev: SaleEvent, m: number) {
-  const tier: 1 | 2 | 3 = m % 100 === 0 ? 3 : m % 50 === 0 ? 2 : 1;
-  const duration = [0, 3800, 5500, 7500][tier];
-  const staff = ev.sale.staff;
-  const fl = forecastLines(new Date());
+type Celebration = {
+  tier: 1 | 2 | 3 | 4; // 4 は目標達成
+  number: number;
+  word: string; // 「突破」「達成」
+  lead?: string;
+  stat: Stat | null;
+  change: number;
+  durationMs: number;
+};
+
+function showCelebration(c: Celebration) {
   const root = $("#celebrate-root")!;
-  root.innerHTML = `<div class="celebrate milestone-pop tier-${tier}" role="dialog" aria-label="${m}杯突破">
+  const stat = c.stat
+    ? `<div class="cel-stat">
+        <div class="cel-stat-label">${esc(c.stat.label)}</div>
+        <div class="cel-stat-value"><span class="num">${esc(c.stat.value)}</span><span class="unit">${esc(c.stat.unit)}</span></div>
+        <div class="cel-stat-note">${esc(c.stat.note)}</div>
+      </div>`
+    : "";
+  root.innerHTML = `<div class="celebrate cel tier-${c.tier}" role="dialog" aria-label="${c.number}杯${c.word}">
     <div class="pop-flash"></div>
     <canvas></canvas>
-    <div class="celebrate-text">
-      <div class="c-sub">🎉 キリ番 🎉</div>
-      <div class="c-main">${m}杯 突破！</div>
-      ${staff ? `<div class="c-staff">${esc(staff)}さん ナイス！</div>` : ""}
-      <div class="c-forecast">${fl.main}</div>
-      <div class="c-time">${esc(fl.sub)}</div>
-      <div class="c-change">お釣り ${yen(ev.sale.change)}</div>
-      <div class="c-tap">タップで会計に戻る</div>
+    <div class="cel-band" aria-hidden="true"></div>
+    <div class="cel-body">
+      <div class="cel-eyebrow">NAKAMURA KOREAN KITCHEN</div>
+      <div class="cel-hero">
+        <span class="cel-num">${c.number}</span>
+        <span class="cel-cup">杯</span>
+      </div>
+      <div class="cel-word"><span>${esc(c.word)}</span></div>
+      ${c.lead ? `<div class="cel-lead">${esc(c.lead)}</div>` : ""}
+      ${stat}
+      <div class="cel-change">お釣り <b>${c.change.toLocaleString("ja-JP")}</b> 円</div>
     </div>
+    <div class="cel-tap">タップで会計に戻る</div>
+    <div class="cel-band bottom" aria-hidden="true"></div>
   </div>`;
   root.hidden = false;
   const stop = runParty(root.querySelector("canvas")!, {
-    durationMs: duration - 600,
-    crackers: tier,
-    fireworks: tier === 3,
-    rain: tier === 1 ? 0 : 80 * tier,
+    durationMs: c.durationMs - 600,
+    crackers: Math.min(3, c.tier),
+    fireworks: c.tier >= 3,
+    rain: c.tier === 1 ? 0 : 70 * c.tier,
   });
   playCracker();
-  setTimeout(() => playMilestone(tier), 250);
+  setTimeout(() => (c.tier === 4 ? playFanfare() : playMilestone(c.tier as 1 | 2 | 3)), 250);
   const close = () => {
     stop();
     root.hidden = true;
     root.innerHTML = "";
     clearTimeout(timer);
   };
-  const timer = setTimeout(close, duration);
+  const timer = setTimeout(close, c.durationMs);
   root.querySelector(".celebrate")!.addEventListener("click", close, { once: true });
 }
 
-// --- 達成演出 (F15) ---
+/** 30杯から10杯ごとなど、区切りの杯数でクラッカーと音楽のドッキリ演出 */
+function milestonePop(ev: SaleEvent, m: number) {
+  const tier: 1 | 2 | 3 = m % 100 === 0 ? 3 : m % 50 === 0 ? 2 : 1;
+  showCelebration({
+    tier,
+    number: m,
+    word: "突破",
+    lead: ev.sale.staff ? `${ev.sale.staff}さん、ナイス！` : undefined,
+    stat: forecastStat(new Date()),
+    change: ev.sale.change,
+    durationMs: [0, 4200, 5800, 7800][tier],
+  });
+}
 
+/** 目標達成 (F15) */
 function celebrate(ev: SaleEvent) {
   const { settings, session } = store.state;
   if (!session) return;
   const at = new Date(ev.sale.createdAt);
-  const root = $("#celebrate-root")!;
-  root.innerHTML = `<div class="celebrate" data-action="close-celebrate" role="dialog" aria-label="目標達成">
-    <div class="pop-flash"></div>
-    <canvas></canvas>
-    <div class="celebrate-text">
-      <div class="c-sub">中村韓国キッチン</div>
-      <div class="c-main">${settings.targetCount}杯達成！</div>
-      <div class="c-time">${hm(at)} 達成・営業開始から ${duration(at.getTime() - Date.parse(session.openedAt))}</div>
-      <div class="c-change">お釣り ${yen(ev.sale.change)}</div>
-      <div class="c-tap">画面をタップして会計に戻る</div>
-    </div>
-  </div>`;
-  root.hidden = false;
-  const stop = runFireworks(root.querySelector("canvas")!, 6000);
-  playCracker();
-  setTimeout(playFanfare, 250);
-  const close = () => {
-    stop();
-    root.hidden = true;
-    root.innerHTML = "";
-    clearTimeout(timer);
-  };
-  const timer = setTimeout(close, 10000);
-  root.querySelector(".celebrate")!.addEventListener("click", close, { once: true });
+  showCelebration({
+    tier: 4,
+    number: settings.targetCount,
+    word: "達成",
+    lead: "みなさん、おつかれさまです！",
+    stat: { label: "達成時刻", value: hm(at), unit: "", note: `営業開始から ${duration(at.getTime() - Date.parse(session.openedAt))}` },
+    change: ev.sale.change,
+    durationMs: 10000,
+  });
 }
 
 // --- 取り消し ---
@@ -487,6 +507,7 @@ async function saveSettings(form: HTMLFormElement) {
     plannedCloseTime: String(fd.get("plannedCloseTime") ?? ""),
     slackWebhookUrl: url,
     milestoneEvery: Math.max(0, num("milestoneEvery") || 0),
+    milestoneStart: Math.max(0, num("milestoneStart") || 0),
     muted,
   });
   setMuted(muted);

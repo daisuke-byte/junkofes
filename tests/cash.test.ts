@@ -39,7 +39,7 @@ describe("理論残高（準備金 + 会計 − 取り消し）", () => {
     ]);
   });
 
-  it("キリ番の判定", () => {
+  it("お祝いする杯数の判定", () => {
     expect(crossedMilestone(9, 10, 10, 350)).toBe(10);
     expect(crossedMilestone(8, 12, 10, 350)).toBe(10);
     expect(crossedMilestone(10, 11, 10, 350)).toBeNull();
@@ -48,5 +48,10 @@ describe("理論残高（準備金 + 会計 − 取り消し）", () => {
     expect(crossedMilestone(355, 360, 10, 350)).toBe(360); // 達成後も続く
     expect(crossedMilestone(9, 10, 0, 350)).toBeNull(); // 演出なし
     expect(crossedMilestone(48, 52, 25, 350)).toBe(50);
+    // 30杯から10杯ごと
+    expect(crossedMilestone(9, 10, 10, 350, 30)).toBeNull();
+    expect(crossedMilestone(19, 20, 10, 350, 30)).toBeNull();
+    expect(crossedMilestone(29, 30, 10, 350, 30)).toBe(30);
+    expect(crossedMilestone(39, 41, 10, 350, 30)).toBe(40);
   });
 });

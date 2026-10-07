@@ -1029,18 +1029,38 @@ table.history {
   opacity: 0;
 }
 
-/* ---------- 達成演出 ---------- */
+/* ---------- お祝いの演出 ---------- */
 #celebrate-root[hidden] {
   display: none;
 }
 .celebrate {
+  --gold-1: #fff3cf;
+  --gold-2: #e9c46a;
+  --gold-3: #b8862b;
+  --champagne: #f4e3b1;
+  --serif: "Playfair Display", "Hiragino Mincho ProN", "Yu Mincho", serif;
+  --latin: "Montserrat", "Hiragino Sans", sans-serif;
+  --jp: "Hiragino Sans", "Hiragino Kaku Gothic ProN", "Noto Sans JP", "Yu Gothic", sans-serif;
   position: fixed;
   inset: 0;
   z-index: 80;
-  background: radial-gradient(circle at 50% 45%, #2a1a5e 0%, #0b0b1e 70%);
   display: grid;
   place-items: center;
   cursor: pointer;
+  overflow: hidden;
+  color: #fff;
+  font-family: var(--jp);
+  background:
+    radial-gradient(ellipse 60% 50% at 50% 42%, rgba(233, 196, 106, 0.22), transparent 70%),
+    radial-gradient(ellipse at 50% 120%, rgba(200, 50, 30, 0.25), transparent 60%),
+    #0b0d18;
+}
+.celebrate.tier-3,
+.celebrate.tier-4 {
+  background:
+    radial-gradient(ellipse 65% 55% at 50% 42%, rgba(233, 196, 106, 0.34), transparent 70%),
+    radial-gradient(ellipse at 50% 120%, rgba(200, 50, 30, 0.4), transparent 60%),
+    #120c10;
 }
 .celebrate canvas {
   position: absolute;
@@ -1048,129 +1068,215 @@ table.history {
   width: 100%;
   height: 100%;
 }
-.celebrate-text {
+/* 丹青の細い帯（上下） */
+.cel-band {
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: 0;
+  height: 6px;
+  background: linear-gradient(90deg, var(--red) 0 25%, var(--green) 25% 50%, var(--yellow) 50% 75%, var(--navy) 75%);
+  opacity: 0.9;
+}
+.cel-band.bottom {
+  top: auto;
+  bottom: 0;
+}
+.cel-body {
   position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
   text-align: center;
-  color: #fff;
-  text-shadow: 0 4px 18px rgba(0, 0, 0, 0.6);
-  animation: pop 0.6s cubic-bezier(0.2, 1.6, 0.4, 1);
+  padding: 24px;
+  animation: cel-in 0.7s cubic-bezier(0.16, 1.3, 0.3, 1) both;
 }
-.c-sub {
-  font-size: 28px;
-  font-weight: 700;
-  color: var(--yellow);
+.cel-eyebrow {
+  font-family: var(--latin);
+  font-weight: 600;
+  font-size: 14px;
+  letter-spacing: 0.42em;
+  color: var(--champagne);
+  opacity: 0.75;
+  margin-bottom: 4px;
 }
-.c-main {
-  font-size: clamp(64px, 12vw, 150px);
-  font-weight: 900;
-  line-height: 1.1;
-  background: linear-gradient(90deg, #ff6b4a, var(--yellow), #3fd3b0, #7aa2ff);
+.cel-hero {
+  display: flex;
+  align-items: baseline;
+  gap: 0.12em;
+  line-height: 0.95;
+}
+.cel-num {
+  font-family: var(--serif);
+  font-style: italic;
+  font-weight: 800;
+  font-size: clamp(150px, 24vw, 280px);
+  letter-spacing: -0.02em;
+  padding: 0 0.08em;
+  font-variant-numeric: lining-nums;
+  background: linear-gradient(180deg, var(--gold-1) 0%, var(--gold-2) 45%, var(--gold-3) 70%, var(--gold-1) 100%);
   -webkit-background-clip: text;
   background-clip: text;
   color: transparent;
+  filter: drop-shadow(0 6px 24px rgba(233, 196, 106, 0.35));
+  animation: cel-shine 2.4s ease-in-out infinite;
+  background-size: 100% 200%;
 }
-.c-time {
-  font-size: 28px;
+.tier-4 .cel-num {
+  font-size: clamp(170px, 28vw, 330px);
+}
+.cel-cup {
+  font-weight: 600;
+  font-size: clamp(40px, 6vw, 72px);
+  color: var(--champagne);
+}
+.cel-word {
+  display: flex;
+  align-items: center;
+  gap: 18px;
+  margin-top: 4px;
+  font-weight: 300;
+  font-size: clamp(28px, 4vw, 44px);
+  letter-spacing: 0.6em;
+  text-indent: 0.6em;
+}
+.cel-word::before,
+.cel-word::after {
+  content: "";
+  width: clamp(40px, 8vw, 110px);
+  height: 1px;
+  background: linear-gradient(90deg, transparent, var(--gold-2));
+}
+.cel-word::after {
+  background: linear-gradient(90deg, var(--gold-2), transparent);
+}
+.cel-lead {
+  margin-top: 14px;
+  font-weight: 600;
+  font-size: 22px;
+  letter-spacing: 0.08em;
+  color: var(--champagne);
+}
+.cel-stat {
+  margin-top: 22px;
+  min-width: min(440px, 80vw);
+  padding: 14px 28px 16px;
+  border-radius: 20px;
+  border: 1px solid rgba(233, 196, 106, 0.45);
+  background: rgba(255, 255, 255, 0.06);
+  -webkit-backdrop-filter: blur(6px);
+  backdrop-filter: blur(6px);
+}
+.cel-stat-label {
+  font-size: 15px;
+  font-weight: 600;
+  letter-spacing: 0.3em;
+  color: var(--gold-2);
+}
+.cel-stat-value {
+  display: flex;
+  align-items: baseline;
+  justify-content: center;
+  gap: 10px;
+  line-height: 1.05;
+}
+.cel-stat-value .num {
+  font-family: var(--serif);
   font-weight: 700;
+  font-size: clamp(56px, 8vw, 84px);
+  font-variant-numeric: lining-nums;
 }
-.c-change {
-  margin-top: 18px;
-  font-size: 30px;
-  font-weight: 900;
-  background: rgba(255, 255, 255, 0.15);
-  display: inline-block;
-  padding: 6px 18px;
-  border-radius: 12px;
+.cel-stat-value .unit {
+  font-size: 22px;
+  font-weight: 300;
+  color: var(--champagne);
 }
-.c-tap {
-  margin-top: 20px;
-  font-size: 18px;
+.cel-stat-note {
+  font-size: 17px;
+  font-weight: 300;
+  letter-spacing: 0.08em;
   opacity: 0.85;
 }
-@keyframes pop {
-  from {
-    transform: scale(0.4);
-    opacity: 0;
-  }
+.cel-change {
+  margin-top: 18px;
+  padding: 6px 22px;
+  border-radius: 999px;
+  border: 1px solid rgba(255, 255, 255, 0.35);
+  font-size: 18px;
+  font-weight: 300;
+  letter-spacing: 0.1em;
 }
-
-@media (prefers-reduced-motion: reduce) {
-  .warn-chip.danger,
-  .celebrate-text {
-    animation: none;
-  }
+.cel-change b {
+  font-family: var(--serif);
+  font-weight: 700;
+  font-size: 30px;
+  margin: 0 4px;
+  letter-spacing: 0;
+  font-variant-numeric: lining-nums;
 }
-
-/* ---------- キリ番の演出（クラッカーのドッキリ） ---------- */
+.cel-tap {
+  position: absolute;
+  bottom: 22px;
+  left: 0;
+  right: 0;
+  text-align: center;
+  font-size: 13px;
+  letter-spacing: 0.3em;
+  opacity: 0.55;
+}
+/* 最初の一瞬だけ光る（ドッキリ） */
 .pop-flash {
   position: absolute;
   inset: 0;
-  background: #fff;
+  background: radial-gradient(circle at 50% 45%, #fff8e6, rgba(255, 248, 230, 0.6));
   pointer-events: none;
-  animation: flash 0.45s ease-out forwards;
+  animation: flash 0.5s ease-out forwards;
 }
 @keyframes flash {
   from {
-    opacity: 0.95;
+    opacity: 1;
   }
   to {
     opacity: 0;
   }
 }
-.milestone-pop {
-  background: radial-gradient(circle at 50% 45%, rgba(29, 58, 138, 0.95) 0%, rgba(8, 8, 24, 0.97) 75%);
+@keyframes cel-in {
+  0% {
+    opacity: 0;
+    transform: scale(0.6);
+  }
+  55% {
+    opacity: 1;
+    transform: scale(1.04) rotate(-0.6deg);
+  }
+  75% {
+    transform: scale(0.99) rotate(0.4deg);
+  }
+  100% {
+    transform: scale(1);
+  }
 }
-.milestone-pop .celebrate-text {
-  animation:
-    pop 0.5s cubic-bezier(0.2, 1.8, 0.4, 1),
-    shake 0.5s 0.05s;
-}
-.milestone-pop .c-main {
-  font-size: clamp(64px, 11vw, 140px);
-}
-.milestone-pop.tier-2 .c-main,
-.milestone-pop.tier-3 .c-main {
-  font-size: clamp(72px, 13vw, 170px);
-}
-.milestone-pop.tier-3 {
-  background: radial-gradient(circle at 50% 45%, #5a1a1a 0%, #0b0b1e 75%);
-}
-.c-staff {
-  font-size: 30px;
-  font-weight: 900;
-  color: var(--yellow);
-  margin-bottom: 6px;
-}
-.c-forecast {
-  font-size: clamp(26px, 3.6vw, 40px);
-  font-weight: 900;
-  margin-top: 6px;
-}
-.c-forecast b {
-  font-size: 1.5em;
-  color: var(--yellow);
-  margin: 0 4px;
-}
-@keyframes shake {
+@keyframes cel-shine {
   0%,
   100% {
-    transform: translate(0, 0) rotate(0);
+    background-position: 0 0;
   }
-  20% {
-    transform: translate(-14px, 4px) rotate(-2deg);
+  50% {
+    background-position: 0 100%;
   }
-  40% {
-    transform: translate(12px, -4px) rotate(2deg);
+}
+@media (max-height: 700px) {
+  .cel-num {
+    font-size: clamp(110px, 18vh, 200px);
   }
-  60% {
-    transform: translate(-8px, 2px) rotate(-1deg);
-  }
-  80% {
-    transform: translate(6px, -2px) rotate(1deg);
+  .cel-stat {
+    margin-top: 12px;
   }
 }
 @media (prefers-reduced-motion: reduce) {
-  .milestone-pop .celebrate-text,
+  .warn-chip.danger,
+  .cel-body,
+  .cel-num,
   .pop-flash {
     animation: none;
   }

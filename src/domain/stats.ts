@@ -100,13 +100,13 @@ export function peakSlot(slots: Slot[]): Slot | null {
 }
 
 /**
- * 会計で「キリ番」（every 杯ごと）をまたいだら、その杯数を返す。
+ * 会計でお祝いの杯数（start 杯から every 杯ごと）をまたいだら、その杯数を返す。
  * 一度に何杯も売れて 2つまたいだ時は大きい方。目標杯数ちょうどは達成演出に任せる。
  */
-export function crossedMilestone(before: number, after: number, every: number, target: number): number | null {
+export function crossedMilestone(before: number, after: number, every: number, target: number, start = every): number | null {
   if (every <= 0) return null;
   const m = Math.floor(after / every) * every;
-  if (m <= before || m <= 0 || m === target) return null;
+  if (m <= before || m <= 0 || m < start || m === target) return null;
   return m;
 }
 

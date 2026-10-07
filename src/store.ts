@@ -11,7 +11,7 @@ export type SaleEvent = {
   before: number; // 会計前の累計杯数
   after: number;
   reachedGoal: boolean;
-  milestone: number | null; // キリ番（設定の杯数ごと）
+  milestone: number | null; // お祝いする杯数（30杯から10杯ごとなど）
 };
 
 export type State = {
@@ -144,7 +144,7 @@ export class Store {
     const after = before + qty;
     const target = settings.targetCount;
     const reachedGoal = before < target && after >= target;
-    const milestone = reachedGoal ? null : crossedMilestone(before, after, settings.milestoneEvery, target);
+    const milestone = reachedGoal ? null : crossedMilestone(before, after, settings.milestoneEvery, target, settings.milestoneStart);
     if (reachedGoal)
       await this.notify("goal", goalText(settings, session, new Date(sale.createdAt)), { id: `${session.id}:goal`, sessionId: session.id });
     return { sale, before, after, reachedGoal, milestone };

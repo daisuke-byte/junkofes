@@ -271,7 +271,10 @@ export function settingsScreen(store: Store): string {
         <label class="field">目標杯数<input name="targetCount" type="number" inputmode="numeric" min="1" value="${s.targetCount}" required /></label>
         <label class="field">営業終了予定<input name="plannedCloseTime" type="time" value="${esc(s.plannedCloseTime)}" /></label>
       </div>
-      <h2>キリ番の演出</h2>
+      <h2>お祝いの演出</h2>
+      <div class="two">
+      <label class="field">何杯目からお祝いするか
+        <input name="milestoneStart" type="number" inputmode="numeric" min="0" step="10" value="${s.milestoneStart}" /></label>
       <label class="field">何杯ごとにお祝いするか
         <select name="milestoneEvery" class="select">
           ${(
@@ -286,7 +289,8 @@ export function settingsScreen(store: Store): string {
             .map(([v, l]) => `<option value="${v}" ${s.milestoneEvery === v ? "selected" : ""}>${l}</option>`)
             .join("")}
         </select></label>
-      <p class="sub">キリ番ではクラッカーと音楽でお祝いし、達成の予測時刻を出します。50杯・100杯ごとはさらに派手になります。目標杯数ちょうどは特別な達成演出です。</p>
+      </div>
+      <p class="sub">クラッカーと音楽でお祝いし、何時ごろ目標に届きそうかを出します（例：30杯から10杯ごと → 30・40・50杯…）。50杯・100杯ごとはさらに派手になり、目標杯数ちょうどは特別な達成演出です。</p>
       <h2>Slack 通知</h2>
       <label class="field">Incoming Webhook URL（この端末の中にだけ保存されます）
         <input name="slackWebhookUrl" type="url" autocomplete="off" autocapitalize="off" spellcheck="false" placeholder="https://hooks.slack.com/services/..." value="${esc(s.slackWebhookUrl)}" /></label>

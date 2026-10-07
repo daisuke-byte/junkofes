@@ -7,7 +7,8 @@ export type Settings = {
   targetCount: number; // 350
   plannedCloseTime: string; // 営業終了予定 "16:00"（空なら未設定）
   slackWebhookUrl: string;
-  milestoneEvery: number; // この杯数ごとにキリ番演出（0 で演出なし）
+  milestoneEvery: number; // この杯数ごとにお祝い演出（0 で演出なし）
+  milestoneStart: number; // お祝いを始める杯数（例：30杯から）
   muted: boolean;
   mode: Mode;
   staff: string[]; // 登録した担当者

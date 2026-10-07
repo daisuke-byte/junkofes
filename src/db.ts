@@ -9,6 +9,7 @@ export const DEFAULT_SETTINGS: Settings = {
   plannedCloseTime: "16:00",
   slackWebhookUrl: "",
   milestoneEvery: 10,
+  milestoneStart: 30,
   muted: false,
   mode: "live",
   staff: [],

@@ -203,7 +203,7 @@ function victory(t: number, key = 0, big = false) {
   }
 }
 
-/** キリ番の音楽。tier 1:小 2:中（50杯ごと） 3:大（100杯ごと） */
+/** 区切りの杯数でのお祝いの音楽。tier 1:小 2:中（50杯ごと） 3:大（100杯ごと） */
 export function playMilestone(tier: 1 | 2 | 3) {
   if (!ready()) return;
   if (tier === 1) {
@@ -236,8 +236,8 @@ export function playFanfare() {
 
 // --- 演出 ---
 
-/** 丹青（단청）を思わせる配色 */
-export const DANCHEONG = ["#C8321E", "#0E7C66", "#F2B705", "#1D3A8A", "#E86A2E", "#2BA58A", "#FFFFFF"];
+/** 紙吹雪の色：金・シャンパンを中心に、丹青（단청）の朱・緑青・群青を少し */
+export const PARTY_COLORS = ["#E9C46A", "#F4E3B1", "#FFFFFF", "#D4A64A", "#E9C46A", "#C8321E", "#2BA58A", "#1D3A8A"];
 
 type Kind = "spark" | "confetti" | "ribbon";
 type P = { x: number; y: number; vx: number; vy: number; life: number; max: number; color: string; size: number; rot: number; vr: number; kind: Kind; phase: number };
@@ -265,7 +265,7 @@ export function runParty(canvas: HTMLCanvasElement, opt: PartyOptions): () => vo
   const H = () => canvas.height;
   const ps: P[] = [];
   const rnd = (a: number, b: number) => a + Math.random() * (b - a);
-  const pick = () => DANCHEONG[Math.floor(Math.random() * DANCHEONG.length)];
+  const pick = () => PARTY_COLORS[Math.floor(Math.random() * PARTY_COLORS.length)];
   const add = (p: Omit<P, "life" | "rot" | "vr" | "phase">) => ps.push({ ...p, life: 0, rot: rnd(0, 6), vr: rnd(-0.25, 0.25), phase: rnd(0, 6) });
 
   /** 画面の左下・右下の角からクラッカーを撃つ */
