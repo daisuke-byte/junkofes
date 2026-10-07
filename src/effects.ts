@@ -7,7 +7,12 @@ export function setMuted(m: boolean) {
   muted = m;
 }
 
-/** iOS は最初のタップで AudioContext を有効化する必要がある */
+/**
+ * iOS は「タップ」の操作の中で AudioContext を動かさないと音が出ない。
+ * 指で触れた瞬間（pointerdown / touchstart）はタップとみなされないため、
+ * 指を離した時（touchend / pointerup / click）に呼ぶ。
+ * 画面ロックや別アプリから戻ると止まる（interrupted）ことがあるので毎回確かめる。
+ */
 export function unlockAudio() {
   try {
     // iPad の消音スイッチがオンでも鳴らす（Safari 17 以降）
@@ -25,15 +30,32 @@ export function unlockAudio() {
       master.gain.value = 1.4;
       master.connect(comp).connect(ctx.destination);
     }
-    if (ctx.state === "suspended") void ctx.resume();
+    if (ctx.state !== "running") {
+      void ctx.resume().catch(() => {});
+      // 無音を一瞬鳴らして、iOS の音声出力を確実に有効にする
+      const src = ctx.createBufferSource();
+      src.buffer = ctx.createBuffer(1, 1, 22050);
+      src.connect(ctx.destination);
+      src.start(0);
+    }
   } catch {
     ctx = null;
   }
 }
 
+/** 音が出せる状態か（設定画面の表示用） */
+export function audioState(): "running" | "stopped" | "unsupported" {
+  if (!ctx) return window.AudioContext || "webkitAudioContext" in window ? "stopped" : "unsupported";
+  return ctx.state === "running" ? "running" : "stopped";
+}
+
 let master: GainNode | null = null;
 const out = () => master ?? ctx!.destination;
-const ready = () => !muted && !!ctx;
+const ready = () => {
+  if (muted || !ctx) return false;
+  if (ctx.state !== "running") void ctx.resume().catch(() => {});
+  return true;
+};
 
 function tone(freq: number, start: number, dur: number, vol = 0.2, type: OscillatorType = "triangle") {
   if (!ctx) return;

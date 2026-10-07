@@ -301,6 +301,10 @@ export function settingsScreen(store: Store): string {
       </div>
       <h2>効果音</h2>
       <label class="switch"><input name="muted" type="checkbox" ${s.muted ? "checked" : ""} /> ミュート（効果音を鳴らさない）</label>
+      <div class="row">
+        <button type="button" class="btn" data-action="test-sound">🔊 音のテスト</button>
+      </div>
+      <p class="sub">聞こえないときは：iPad の音量ボタンで音量を上げる／コントロールセンターの消音（ベルのマーク）を切る／Bluetooth のイヤホンやスピーカーにつながっていないか確かめる。</p>
       <p class="form-error" id="settings-error" role="alert"></p>
       <button type="submit" class="btn primary xl">設定を保存</button>
     </form>

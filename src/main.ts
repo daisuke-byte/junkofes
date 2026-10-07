@@ -9,7 +9,7 @@ import { testText } from "./domain/messages";
 import { sumDenoms, yen, type ReceiveOption } from "./domain/money";
 import { totals } from "./domain/stats";
 import { duration, hm, ymd } from "./domain/time";
-import { playConfirm, playCracker, playError, playFanfare, playMilestone, runParty, setMuted, unlockAudio } from "./effects";
+import { audioState, playConfirm, playCracker, playError, playFanfare, playMilestone, runParty, setMuted, unlockAudio } from "./effects";
 import { isWebhookUrl, Notifier, slackTransport } from "./notify";
 import { canvasToPdf } from "./pdf";
 import { Store, type SaleEvent } from "./store";
@@ -515,6 +515,15 @@ async function saveSettings(form: HTMLFormElement) {
   render(true);
 }
 
+function testSound() {
+  unlockAudio();
+  if (store.state.settings.muted) return toast("ミュートがオンです。チェックを外して「設定を保存」してください", "error");
+  if (audioState() === "unsupported") return toast("この端末では音を鳴らせません", "error");
+  playCracker();
+  setTimeout(() => playMilestone(1), 250);
+  toast("音を鳴らしました。聞こえない場合は下の注意を確認してください", "ok", 3000);
+}
+
 async function testSlack() {
   const input = $<HTMLInputElement>('[name="slackWebhookUrl"]');
   const url = input?.value.trim() || store.state.settings.slackWebhookUrl;
@@ -644,6 +653,8 @@ app.addEventListener("click", (e) => {
       return;
     case "csv":
       return void exportCsv();
+    case "test-sound":
+      return testSound();
     case "test-slack":
       return void testSlack();
     case "flush-slack":
@@ -695,7 +706,8 @@ $("#modal-root")!.addEventListener("click", (e) => {
   }
 });
 
-document.addEventListener("pointerdown", unlockAudio, { capture: true });
+// 音の有効化はタップ（指を離した時）でないと iOS で効かない
+for (const ev of ["touchend", "pointerup", "click", "keydown"]) document.addEventListener(ev, unlockAudio, { capture: true });
 window.addEventListener("hashchange", () => render(true));
 window.addEventListener("online", () => {
   ui.online = true;
